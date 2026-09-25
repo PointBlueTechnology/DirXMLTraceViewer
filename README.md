@@ -71,6 +71,26 @@ choose **Open** once, or run `xattr -d com.apple.quarantine dirxml-trace-viewer.
 
 To try the viewer without a server, start it with `--demo`.
 
+### Command line
+
+The launchers and `java -jar` pass arguments on, so another tool can start the viewer already
+showing something (DirXMLDev's `driver.trace view` does this):
+
+```
+--open FILE                                   open a trace file
+--connect URL|HOST[:PORT] --bind-dn DN        connect and stream; URL is ldaps://host:636 or
+      [--search-base BASE] [--driver NAME]    ldap://host:389, a bare host means LDAPS on 636;
+      [--no-legacy-ciphers]                   --driver selects that driver once the tree is built
+--password-stdin                              read the bind password from the first line of stdin
+--demo                                        synthetic trace, no vault
+--help
+```
+
+The password is never an argument: it comes from the `DIRXML_TRACE_VIEWER_PASSWORD` environment
+variable or, with `--password-stdin`, from standard input, so it stays out of process listings and
+shell history. An untrusted server certificate is still shown for you to accept (see
+[Server certificates](#server-certificates)); a remembered certificate connects without asking.
+
 ## Using it
 
 ### Connecting
