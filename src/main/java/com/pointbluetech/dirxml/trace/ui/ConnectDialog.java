@@ -36,7 +36,6 @@ final class ConnectDialog extends JDialog {
     private final JTextField host = new JTextField(prefs.get("host", ""), 24);
     private final JSpinner port = new JSpinner(new SpinnerNumberModel(prefs.getInt("port", 636), 1, 65535, 1));
     private final JCheckBox ssl = new JCheckBox("Use LDAPS (SSL/TLS)", prefs.getBoolean("ssl", true));
-    private final JCheckBox trustAll = new JCheckBox("Trust any server certificate", prefs.getBoolean("trustAll", true));
     private final JCheckBox legacyCiphers = new JCheckBox("Allow legacy RSA ciphers",
             prefs.getBoolean(PREF_LEGACY_CIPHERS, true)); // most eDirectory LDAPS listeners offer only RSA key exchange
     private final JTextField bindDn = new JTextField(prefs.get("bindDn", "cn=admin,ou=sa,o=system"), 24);
@@ -47,15 +46,12 @@ final class ConnectDialog extends JDialog {
     ConnectDialog(JFrame owner) {
         super(owner, "Connect to Identity Vault", true);
         searchBase.setToolTipText("Where to look for driver sets, e.g. o=system. Leave blank to search the whole tree.");
-        trustAll.setToolTipText("Skip certificate validation. Convenient for lab servers with self-signed certificates.");
         ssl.addActionListener(e -> {
             int p = (Integer) port.getValue();
             if (ssl.isSelected() && p == 389) port.setValue(636);
             if (!ssl.isSelected() && p == 636) port.setValue(389);
-            trustAll.setEnabled(ssl.isSelected());
             legacyCiphers.setEnabled(ssl.isSelected());
         });
-        trustAll.setEnabled(ssl.isSelected());
         legacyCiphers.setEnabled(ssl.isSelected());
         legacyCiphers.setToolTipText("<html>Re-enable TLS_RSA_* suites (no forward secrecy), which newer Java disables.<br>"
                 + "Needed for eDirectory servers that offer only e.g. AES256-GCM-SHA384.<br>"
@@ -67,7 +63,6 @@ final class ConnectDialog extends JDialog {
         addRow(form, row++, "Host:", host);
         addRow(form, row++, "Port:", port);
         addRow(form, row++, "", ssl);
-        addRow(form, row++, "", trustAll);
         addRow(form, row++, "", legacyCiphers);
         addRow(form, row++, "Bind DN:", bindDn);
         addRow(form, row++, "Password:", password);
@@ -111,12 +106,11 @@ final class ConnectDialog extends JDialog {
         prefs.put("host", host.getText().trim());
         prefs.putInt("port", (Integer) port.getValue());
         prefs.putBoolean("ssl", ssl.isSelected());
-        prefs.putBoolean("trustAll", trustAll.isSelected());
         prefs.putBoolean(PREF_LEGACY_CIPHERS, legacyCiphers.isSelected());
         prefs.put("bindDn", bindDn.getText().trim());
         prefs.put("searchBase", searchBase.getText().trim());
         result = new ConnectionSettings(host.getText().trim(), (Integer) port.getValue(), ssl.isSelected(),
-                trustAll.isSelected(), legacyCiphers.isSelected(), bindDn.getText().trim(), password.getPassword(), searchBase.getText().trim());
+                legacyCiphers.isSelected(), bindDn.getText().trim(), password.getPassword(), searchBase.getText().trim());
         dispose();
     }
 

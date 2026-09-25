@@ -1,5 +1,6 @@
 package com.pointbluetech.dirxml.trace.ui;
 
+import com.pointbluetech.dirxml.trace.ldap.CertificateTrust;
 import com.pointbluetech.dirxml.trace.ldap.ConnectionSettings;
 import com.pointbluetech.dirxml.trace.ldap.DemoTraceEventSource;
 import com.pointbluetech.dirxml.trace.ldap.DirXmlObject;
@@ -162,6 +163,7 @@ public final class MainFrame extends JFrame {
         if (!demo && ConnectDialog.legacyCiphersRemembered()) {
             LegacyTls.enable();
         }
+        CertificateTrust.setPrompt(CertificateDialogs.prompt(this));
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             @Override
@@ -229,6 +231,7 @@ public final class MainFrame extends JFrame {
         file.add(connectAction);
         file.add(disconnectAction);
         file.add(openFileAction);
+        file.add(action("Accepted Certificates…", 0, e -> CertificateDialogs.manage(this)));
         file.addSeparator();
         file.add(action("Record to File…", KeyEvent.VK_R, e -> recordButton.doClick()));
         file.add(action("Save Displayed Trace As…", KeyEvent.VK_S, e -> saveDisplayed()));

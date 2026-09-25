@@ -25,6 +25,8 @@ syntax coloring. It can also open trace files.
 - **Open trace files** from the server (drag and drop works too). The same coloring and filters
   apply; large files are fine (tested with 650 MB).
 - **Pause** freezes the view while trace keeps being collected, so nothing is lost while you read.
+- **Certificate checking.** Untrusted LDAPS certificates (self-signed, tree CA) are shown for you
+  to accept once or remember; remembered certificates are pinned and can be cleared.
 
 ## Requirements
 
@@ -76,8 +78,6 @@ To try the viewer without a server, start it with `--demo`.
 remembered). Options:
 
 - **Use LDAPS** (port 636) or plain LDAP (389).
-- **Trust any server certificate.** Accepts self-signed and tree-CA certificates without importing
-  them. Convenient for lab servers, but it does not protect against a spoofed server.
 - **Allow legacy RSA ciphers** (on by default). Many eDirectory LDAPS listeners only offer
   static-RSA key exchange (e.g. `AES256-GCM-SHA384`), which Java 24 and later disable. Without this
   the TLS handshake fails with "Connection or outbound has closed". These suites lack forward
@@ -85,6 +85,28 @@ remembered). Options:
   changing it after an LDAPS connection has been made needs a restart.
 - **Search base** limits where driver sets are looked for, e.g. `o=system`. Blank searches the
   whole tree.
+
+#### Server certificates
+
+LDAPS certificates are checked the usual way: the certificate must be issued by a certificate
+authority Java trusts, and match the server name or IP address you connect to. If it does, the
+viewer connects without asking.
+
+If it doesn't, for example a self-signed certificate, one from the eDirectory tree's own CA, an
+expired one, or one for a different name, the viewer shows the certificate's subject, issuer,
+validity and SHA-256 fingerprint, and asks:
+
+- **Trust and Remember:** trust this certificate for this server (host and port) from now on.
+- **Trust This Time:** trust it until the viewer is closed.
+- **Cancel:** don't connect.
+
+Compare the fingerprint with the server's before trusting it. A remembered certificate is pinned: if
+the server later presents a different one, the viewer warns that it has changed and shows both
+fingerprints. Renewing a server's certificate does this too.
+
+**File → Accepted Certificates…** lists the remembered certificates and removes one or all of them;
+you are then asked again on the next connection. Each server in a driver set has its own
+certificate, so connecting to a multi-server driver set can ask once per server.
 
 After connecting, the viewer finds the driver sets, connects to every server in each set's server
 list with the same credentials, reads each driver's state and trace level from each server, and
@@ -190,6 +212,9 @@ JLDAP, so no IDM libraries are needed.
 
 - **"Connection or outbound has closed" or a TLS handshake failure:** enable **Allow legacy RSA
   ciphers** and restart the viewer.
+- **"The certificate for host:port was not accepted":** you chose Cancel at the certificate prompt,
+  or the server's certificate changed. Connect again to be asked, or check **File → Accepted
+  Certificates…**.
 - **Connected, but a driver shows no trace:** check its trace level for the server it runs on,
   and that the right channels are ticked.
 - **A server in the driver set shows as unavailable:** the viewer connects to each server at the

@@ -12,15 +12,10 @@ import com.novell.ldap.LDAPReferralException;
 import com.novell.ldap.LDAPSearchConstraints;
 import com.novell.ldap.LDAPSearchResults;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -63,7 +58,7 @@ public final class LdapSession implements AutoCloseable {
         }
         LDAPConnection c;
         if (s.ssl()) {
-            c = new LDAPConnection(new LDAPJSSESecureSocketFactory(sslFactory(s.trustAll())));
+            c = new LDAPConnection(new LDAPJSSESecureSocketFactory(sslFactory(s)));
             LegacyTls.markTlsInitialized();
         } else {
             c = new LDAPConnection();
@@ -290,27 +285,10 @@ public final class LdapSession implements AutoCloseable {
         return Arrays.copyOf(bb.array(), bb.limit());
     }
 
-    private static javax.net.ssl.SSLSocketFactory sslFactory(boolean trustAll) throws LDAPException {
+    /** Checks the server certificate, asking the user about ones the system does not trust. */
+    private static javax.net.ssl.SSLSocketFactory sslFactory(ConnectionSettings s) throws LDAPException {
         try {
-            if (!trustAll) {
-                return SSLContext.getDefault().getSocketFactory();
-            }
-            SSLContext ctx = SSLContext.getInstance("TLS");
-            ctx.init(null, new TrustManager[]{new X509TrustManager() {
-                @Override
-                public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                }
-
-                @Override
-                public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                }
-
-                @Override
-                public X509Certificate[] getAcceptedIssuers() {
-                    return new X509Certificate[0];
-                }
-            }}, new SecureRandom());
-            return ctx.getSocketFactory();
+            return CertificateTrust.socketFactory(s.host(), s.port());
         } catch (GeneralSecurityException e) {
             throw new LDAPException("TLS setup failed: " + e.getMessage(), LDAPException.CONNECT_ERROR, e.getMessage());
         }
