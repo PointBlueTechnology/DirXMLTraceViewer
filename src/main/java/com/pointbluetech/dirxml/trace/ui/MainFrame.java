@@ -100,6 +100,7 @@ public final class MainFrame extends JFrame {
 
     private final Preferences prefs = Preferences.userNodeForPackage(MainFrame.class);
     private final boolean demo;
+    private final com.pointbluetech.dirxml.trace.StartupOptions options;
 
     // Pipeline: LDAP listener threads -> processor thread (parse + render) -> processed ->
     // (Swing timer on the EDT) -> store / view / file. Rebuilds of the view render on another thread.
@@ -161,9 +162,16 @@ public final class MainFrame extends JFrame {
     private final Action clearAction = action("Clear", KeyEvent.VK_K, e -> clearTrace());
 
     public MainFrame(boolean demo) {
+        this(demo ? com.pointbluetech.dirxml.trace.StartupOptions.demoMode() : com.pointbluetech.dirxml.trace.StartupOptions.dialog());
+    }
+
+    /** What the command line asked for; see {@link com.pointbluetech.dirxml.trace.StartupOptions}. */
+    public MainFrame(com.pointbluetech.dirxml.trace.StartupOptions options) {
         super("DirXML Trace Viewer");
-        this.demo = demo;
-        if (!demo && ConnectDialog.legacyCiphersRemembered()) {
+        this.options = options;
+        this.demo = options.demo();
+        boolean legacy = options.settings() != null ? options.settings().legacyCiphers() : ConnectDialog.legacyCiphersRemembered();
+        if (!demo && legacy) {
             LegacyTls.enable();
         }
         CertificateTrust.setPrompt(CertificateDialogs.prompt(this));
@@ -218,7 +226,11 @@ public final class MainFrame extends JFrame {
     /** Called once the window is visible. */
     public void startup() {
         updates.checkAutomaticallyIfDue();
-        if (demo) {
+        if (options.openFile() != null) {
+            openTraceFile(options.openFile().toFile());
+        } else if (options.settings() != null) {
+            connect(options.settings(), options.driver());
+        } else if (demo) {
             startDemo();
         } else {
             connect();
@@ -487,6 +499,11 @@ public final class MainFrame extends JFrame {
         if (settings == null) {
             return;
         }
+        connect(settings, null);
+    }
+
+    /** Connect with the given settings; {@code selectDriver} names the driver to select once the tree is built (null: the root). */
+    private void connect(ConnectionSettings settings, String selectDriver) {
         disconnect();
         connectAction.setEnabled(false);
         status.setText("Connecting to " + settings.display() + " and the servers in its driver sets…");
@@ -506,6 +523,9 @@ public final class MainFrame extends JFrame {
             view.setTagServer(vault.servers().size() > 1);
             setTitle("DirXML Trace Viewer — " + settings.display());
             populateTree(settings.display(), c.sets());
+            if (selectDriver != null && !selectDriver.isBlank() && !selectDriver(selectDriver)) {
+                status.setText("Driver \"" + selectDriver + "\" was not found under \"" + settings.searchBase() + "\"; showing every driver.");
+            }
             disconnectAction.setEnabled(true);
             refreshAllAction.setEnabled(true);
             if (c.sets().isEmpty()) {
@@ -562,6 +582,23 @@ public final class MainFrame extends JFrame {
             status.setText("Trace stream error: " + e.getMessage());
             status.setForeground(TracePalette.TOKENS.get(com.pointbluetech.dirxml.trace.model.TraceHighlighter.Token.STATUS_ERROR));
         });
+    }
+
+    /** Select the driver named {@code name} (its cn or its trace name, case-insensitively); false when no such driver is in the tree. */
+    private boolean selectDriver(String name) {
+        for (int i = 0; i < treeRoot.getChildCount(); i++) {
+            DefaultMutableTreeNode setNode = (DefaultMutableTreeNode) treeRoot.getChildAt(i);
+            for (int j = 0; j < setNode.getChildCount(); j++) {
+                DefaultMutableTreeNode n = (DefaultMutableTreeNode) setNode.getChildAt(j);
+                if (n.getUserObject() instanceof DirXmlObject o && o.kind() == DirXmlObject.Kind.DRIVER
+                        && (name.equalsIgnoreCase(o.name()) || name.equalsIgnoreCase(o.traceName()) || name.equalsIgnoreCase(o.dn()))) {
+                    tree.setSelectionPath(new javax.swing.tree.TreePath(n.getPath()));
+                    tree.scrollPathToVisible(new javax.swing.tree.TreePath(n.getPath()));
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void populateTree(String rootLabel, List<DirXmlObject> sets) {
