@@ -220,6 +220,9 @@ This produces:
 
 ### macOS app
 
+The full release process, including signing and notarization, is in
+[docs/RELEASING.md](docs/RELEASING.md).
+
 `src/packaging/macos/build-macos-app.sh` builds the signed, notarized app and DMG with a bundled
 Java 21 runtime (using `jlink` and `jpackage`). Run it on a Mac after `mvn package`:
 
