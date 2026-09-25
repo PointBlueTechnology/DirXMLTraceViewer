@@ -35,6 +35,20 @@ syntax coloring. It can also open trace files.
 
 ## Running
 
+### macOS app (recommended on Mac)
+
+Download `DirXML-Trace-Viewer-<version>-arm64.dmg` from the
+[releases](https://github.com/PointBlueTechnology/DirXMLTraceViewer/releases), open it, and drag
+**DirXML Trace Viewer** to Applications, or to `~/Applications`, the Desktop, or any other folder if
+you don't have admin rights. It includes its own Java runtime, so nothing else needs installing, and
+it is signed and notarized by Apple, so it opens without security warnings. It is built for Apple
+silicon Macs.
+
+To give it more memory for very large trace files, start it from Terminal with
+`JAVA_TOOL_OPTIONS=-Xmx6g "/path/to/DirXML Trace Viewer.app/Contents/MacOS/DirXML Trace Viewer"`.
+
+### Java launchers (any OS)
+
 Unzip `dirxml-trace-viewer-<version>.zip` and use the launcher for your system:
 
 | System        | Launcher                                                               |
@@ -151,6 +165,21 @@ This produces:
 - `target/dirxml-trace-viewer.jar`: the executable jar with all dependencies.
 - `target/dirxml-trace-viewer-<version>.zip`: the jar, the launchers, this README, the license and
   third-party notices.
+
+### macOS app
+
+`src/packaging/macos/build-macos-app.sh` builds the signed, notarized app and DMG with a bundled
+Java 21 runtime (using `jlink` and `jpackage`). Run it on a Mac after `mvn package`:
+
+```sh
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+NOTARY_PROFILE=your-notary-profile \
+src/packaging/macos/build-macos-app.sh
+```
+
+It needs a Developer ID Application certificate in your keychain and notarization credentials
+stored with `xcrun notarytool store-credentials`. Without `NOTARY_PROFILE` it signs but does not
+notarize. The output is for the architecture of the JDK used; set `JAVA21_HOME` to choose it.
 
 Driver state and start/stop/restart use the IDM engine's LDAP extended operations (OIDs
 `2.16.840.1.113719.1.14.100.13`, `.15`, `.17` and `.101`). The viewer encodes them itself with
