@@ -16,6 +16,9 @@
         <file>
             <source>LICENSE</source>
         </file>
+        <file>
+            <source>THIRD-PARTY-NOTICES.txt</source>
+        </file>
     </files>
     <fileSets>
         <fileSet>

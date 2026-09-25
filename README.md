@@ -149,7 +149,8 @@ mvn package
 This produces:
 
 - `target/dirxml-trace-viewer.jar`: the executable jar with all dependencies.
-- `target/dirxml-trace-viewer-<version>.zip`: the jar, the launchers and this README.
+- `target/dirxml-trace-viewer-<version>.zip`: the jar, the launchers, this README, the license and
+  third-party notices.
 
 Driver state and start/stop/restart use the IDM engine's LDAP extended operations (OIDs
 `2.16.840.1.113719.1.14.100.13`, `.15`, `.17` and `.101`). The viewer encodes them itself with
@@ -182,6 +183,8 @@ src/assembly/        distribution zip layout
 
 MIT; see [LICENSE](LICENSE).
 
-The viewer bundles [JLDAP](https://www.openldap.org/jldap/) (OpenLDAP Public License) and
-[FlatLaf](https://www.formdev.com/flatlaf/) (Apache License 2.0). NetIQ, OpenText, Identity Manager
+The executable jar bundles [JLDAP](https://www.openldap.org/jldap/) (OpenLDAP Public License
+2.0.1) and [FlatLaf](https://www.formdev.com/flatlaf/) (Apache License 2.0); their copyright notices
+and license texts are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), which is also included
+in the jar and the distribution zip. NetIQ, OpenText, Identity Manager
 and eDirectory are trademarks of their respective owners; this project is not affiliated with them.
