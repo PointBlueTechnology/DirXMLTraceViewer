@@ -175,3 +175,11 @@ src/main/java/com/pointbluetech/dirxml/trace/
 src/dist/            launch scripts
 src/assembly/        distribution zip layout
 ```
+
+## License
+
+MIT; see [LICENSE](LICENSE).
+
+The viewer bundles [JLDAP](https://www.openldap.org/jldap/) (OpenLDAP Public License) and
+[FlatLaf](https://www.formdev.com/flatlaf/) (Apache License 2.0). NetIQ, OpenText, Identity Manager
+and eDirectory are trademarks of their respective owners; this project is not affiliated with them.

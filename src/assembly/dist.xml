@@ -13,6 +13,9 @@
         <file>
             <source>README.md</source>
         </file>
+        <file>
+            <source>LICENSE</source>
+        </file>
     </files>
     <fileSets>
         <fileSet>
