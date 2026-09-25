@@ -25,6 +25,7 @@ syntax coloring. It can also open trace files.
 - **Open trace files** from the server (drag and drop works too). The same coloring and filters
   apply; large files are fine (tested with 650 MB).
 - **Pause** freezes the view while trace keeps being collected, so nothing is lost while you read.
+- **Update notices.** Checks GitHub for a newer release once a day and tells you (optional).
 - **Certificate checking.** Untrusted LDAPS certificates (self-signed, tree CA) are shown for you
   to accept once or remember; remembered certificates are pinned and can be cleared.
 
@@ -162,6 +163,14 @@ limit to see further back.
   re-filtered without losing history. While paused nothing is dropped unless the Java heap is
   nearly full. Trace files are always kept whole, heap permitting.
 - **Messages shown in the view** (default 15,000). Larger views scroll less smoothly.
+
+### Updates
+
+Once a day at startup the viewer asks GitHub whether a newer release exists and, if so, offers to
+open the release page. Nothing is installed automatically: download the new Mac app or zip and
+replace the old one. **Help → Check for Updates…** checks right away, and **Help → Check for Updates
+Automatically** turns the daily check off. The check sends only a request to GitHub's public
+releases API, with no identifiers or usage data, and stays silent when offline.
 
 ### Keyboard shortcuts
 

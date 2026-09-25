@@ -53,6 +53,7 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
@@ -151,6 +152,8 @@ public final class MainFrame extends JFrame {
     private final JButton stopButton = new JButton("Stop");
     private final JButton restartButton = new JButton("Restart");
 
+    private final UpdateNotifier updates = new UpdateNotifier(this);
+
     private final Action connectAction = action("Connect…", KeyEvent.VK_N, e -> connect());
     private final Action openFileAction = action("Open Trace File…", KeyEvent.VK_O, e -> chooseTraceFile());
     private final Action disconnectAction = action("Disconnect", 0, e -> disconnect());
@@ -214,6 +217,7 @@ public final class MainFrame extends JFrame {
 
     /** Called once the window is visible. */
     public void startup() {
+        updates.checkAutomaticallyIfDue();
         if (demo) {
             startDemo();
         } else {
@@ -283,6 +287,20 @@ public final class MainFrame extends JFrame {
         viewMenu.add(refreshAllAction);
         viewMenu.add(clearAction);
         bar.add(viewMenu);
+
+        JMenu help = new JMenu("Help");
+        help.add(action("Check for Updates…", 0, e -> updates.checkNow()));
+        JCheckBoxMenuItem autoUpdate = new JCheckBoxMenuItem("Check for Updates Automatically",
+                updates.automaticChecksEnabled());
+        autoUpdate.setToolTipText("Once a day at startup, ask GitHub whether a newer release exists");
+        autoUpdate.addActionListener(e -> updates.setAutomaticChecksEnabled(autoUpdate.isSelected()));
+        help.add(autoUpdate);
+        help.addSeparator();
+        help.add(action("About DirXML Trace Viewer", 0, e -> updates.showAbout()));
+        bar.add(help);
+        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_ABOUT)) {
+            Desktop.getDesktop().setAboutHandler(e -> updates.showAbout()); // macOS app menu → About
+        }
         return bar;
     }
 
