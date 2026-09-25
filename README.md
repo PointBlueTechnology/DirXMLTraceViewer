@@ -44,7 +44,8 @@ you don't have admin rights. It includes its own Java runtime, so nothing else n
 it is signed and notarized by Apple, so it opens without security warnings. It is built for Apple
 silicon Macs.
 
-To give it more memory for very large trace files, start it from Terminal with
+It can use up to half of the Mac's memory, which is plenty for large trace files. To set a
+specific limit, start it from Terminal with
 `JAVA_TOOL_OPTIONS=-Xmx6g "/path/to/DirXML Trace Viewer.app/Contents/MacOS/DirXML Trace Viewer"`.
 
 ### Java launchers (any OS)

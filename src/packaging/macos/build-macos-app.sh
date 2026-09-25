@@ -55,7 +55,7 @@ cp "$JAR" "$OUT/input/"
     --description "Viewer for NetIQ / OpenText Identity Manager driver trace" \
     --input "$OUT/input" --main-jar "$(basename "$JAR")" \
     --runtime-image "$OUT/runtime" \
-    --java-options "-Xmx2g" --java-options "--enable-native-access=ALL-UNNAMED" \
+    --java-options "-XX:MaxRAMPercentage=50" --java-options "--enable-native-access=ALL-UNNAMED" \
     --mac-package-identifier "$BUNDLE_ID" --mac-package-name "DirXML Trace" \
     --mac-sign --mac-signing-key-user-name "${SIGN_IDENTITY#Developer ID Application: }"
 
