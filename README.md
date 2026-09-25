@@ -2,7 +2,7 @@
 
 A desktop viewer for NetIQ / OpenText Identity Manager (IDM) driver trace. It connects to the
 Identity Vault over LDAP, discovers driver sets and drivers, and streams DSTrace output live with
-syntax coloring. It can also open trace files written on the server.
+syntax coloring. It can also open trace files.
 
 ![DirXML Trace Viewer showing live trace for the Active Directory driver, with per-server driver status and trace levels in the tree](docs/screenshot.png)
 
