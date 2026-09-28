@@ -20,8 +20,41 @@ public record TraceRecord(String server, long receivedAt, int eventType, String 
                           List<FormattedText.ColorSpan> colorSpans, String driverName, Channel channel,
                           Header header) {
 
-    /** Character ranges of the header parts; {@code threadStart} is -1 when there is no ST/PT tag. */
+    /**
+     * Character ranges of the header parts; {@code threadStart} is -1 when there is no ST/PT tag. The
+     * timestamp range includes its brackets. {@code stamped} is true when the viewer added the
+     * timestamp from {@code receivedAt}, so it may be rewritten in another {@link TimestampFormat}.
+     */
     public record Header(int timestampStart, int timestampEnd, int nameStart, int nameEnd,
-                         int threadStart, int threadEnd, int end) {
+                         int threadStart, int threadEnd, int end, boolean stamped) {
+    }
+
+    /**
+     * This record with a viewer-added timestamp written in {@code format}; unchanged if the
+     * timestamp came with the message or is already in that format.
+     */
+    public TraceRecord withTimestampFormat(TimestampFormat format) {
+        Header h = header;
+        if (h == null || !h.stamped()) {
+            return this;
+        }
+        String stamp = format.format(receivedAt);
+        int from = h.timestampStart() + 1, to = h.timestampEnd() - 1;
+        if (stamp.equals(text.substring(from, to))) {
+            return this;
+        }
+        int shift = stamp.length() - (to - from);
+        String newText = text.substring(0, from) + stamp + text.substring(to);
+        List<FormattedText.ColorSpan> spans = colorSpans.stream()
+                .map(c -> new FormattedText.ColorSpan(move(c.start(), to, shift), move(c.end(), to, shift), c.color()))
+                .toList();
+        Header moved = new Header(h.timestampStart(), h.timestampEnd() + shift, h.nameStart() + shift,
+                h.nameEnd() + shift, h.threadStart() < 0 ? -1 : h.threadStart() + shift,
+                h.threadEnd() < 0 ? -1 : h.threadEnd() + shift, h.end() + shift, true);
+        return new TraceRecord(server, receivedAt, eventType, perpetratorDN, newText, spans, driverName, channel, moved);
+    }
+
+    private static int move(int pos, int after, int shift) {
+        return pos >= after ? pos + shift : pos;
     }
 }

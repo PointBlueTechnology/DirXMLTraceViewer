@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TraceModelTest {
@@ -156,6 +157,61 @@ class TraceModelTest {
 
         TraceRecord fromFile = p.parse(event("[03/06/26 22:40:29.151]:AD SST:    Rule rejected."));
         assertEquals(Channel.SERVICE, fromFile.channel());
+    }
+
+    @Test
+    void stampsLiveEventsInTheChosenFormat() {
+        long at = java.time.LocalDateTime.of(2026, 9, 28, 14, 5, 12, 345_000_000)
+                .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        TraceParser p = new TraceParser();
+        p.setTimestampFormat(TimestampFormat.EUROPEAN);
+        TraceRecord r = p.parse(new RawTraceEvent(214, at, "", "%3CAD ST:Start transaction.", List.of()));
+        assertTrue(r.text().startsWith("[28.09.26 14:05:12.345]:AD ST:"), r.text());
+        assertTrue(r.header().stamped());
+    }
+
+    @Test
+    void reformatsViewerStampsAndKeepsOffsetsAligned() {
+        long at = java.time.LocalDateTime.of(2026, 9, 28, 14, 5, 12, 345_000_000)
+                .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        TraceRecord us = new TraceParser().parse(new RawTraceEvent(214, at, "",
+                "%3CAD ST:Applying policy: %14Cpol%3C.", List.of()));
+        assertTrue(us.text().startsWith("[09/28/26 14:05:12.345]:"), us.text());
+
+        assertEquals("[28.09.26 14:05:12.345]:AD ST:Applying policy: pol.\n",
+                us.withTimestampFormat(TimestampFormat.EUROPEAN).text());
+        assertEquals("[28/09/26 14:05:12.345]:AD ST:Applying policy: pol.\n",
+                us.withTimestampFormat(TimestampFormat.EUROPEAN_SLASH).text());
+
+        for (TimestampFormat f : TimestampFormat.values()) {
+            TraceRecord r = us.withTimestampFormat(f);
+            TraceRecord.Header h = r.header();
+            assertEquals("[" + f.format(at) + "]", r.text().substring(h.timestampStart(), h.timestampEnd()));
+            assertEquals("AD", r.text().substring(h.nameStart(), h.nameEnd()));
+            assertEquals("ST", r.text().substring(h.threadStart(), h.threadEnd()));
+            FormattedText.ColorSpan pol = r.colorSpans().stream().filter(c -> c.color() == 14).findFirst().orElseThrow();
+            assertEquals("pol", r.text().substring(pol.start(), pol.end()));
+            TraceHighlighter.highlight(TraceCompactor.compact(r)); // offsets must stay within the text
+        }
+        assertSame(us, us.withTimestampFormat(TimestampFormat.US));
+    }
+
+    @Test
+    void leavesTimestampsThatCameWithTheTextAlone() {
+        TraceParser p = new TraceParser();
+        TraceRecord fromFile = p.parseText("", "[09/28/26 14:05:12.345]:AD ST:Start transaction.");
+        assertFalse(fromFile.header().stamped());
+        assertSame(fromFile, fromFile.withTimestampFormat(TimestampFormat.ISO));
+
+        TraceRecord alreadyStamped = p.parse(event("[09/28/26 14:05:12.345]:AD ST:Start transaction."));
+        assertSame(alreadyStamped, alreadyStamped.withTimestampFormat(TimestampFormat.ISO));
+    }
+
+    @Test
+    void unknownTimestampPreferenceFallsBackToDefault() {
+        assertEquals(TimestampFormat.EUROPEAN, TimestampFormat.fromName("EUROPEAN"));
+        assertEquals(TimestampFormat.DEFAULT, TimestampFormat.fromName("NO_SUCH_FORMAT"));
+        assertEquals(TimestampFormat.DEFAULT, TimestampFormat.fromName(null));
     }
 
     @Test

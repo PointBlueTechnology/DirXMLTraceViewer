@@ -1,5 +1,6 @@
 package com.pointbluetech.dirxml.trace.ui;
 
+import com.pointbluetech.dirxml.trace.model.TimestampFormat;
 import com.pointbluetech.dirxml.trace.model.TraceCompactor;
 import com.pointbluetech.dirxml.trace.model.TraceHighlighter;
 import com.pointbluetech.dirxml.trace.model.TraceRecord;
@@ -19,7 +20,8 @@ final class TraceEntry {
      * Display text with parallel run arrays. A style code below {@link #TOKEN_COUNT} is a token
      * ordinal; otherwise it is {@code TOKEN_COUNT + DSTrace console color}.
      */
-    record Rendered(String text, int[] starts, int[] ends, int[] styles, boolean compact, boolean tagServer) {
+    record Rendered(String text, int[] starts, int[] ends, int[] styles, boolean compact, boolean tagServer,
+                    TimestampFormat timestampFormat) {
     }
 
     final long seq;
@@ -31,18 +33,20 @@ final class TraceEntry {
         this.record = record;
     }
 
-    Rendered render(boolean compact, boolean tagServer) {
+    Rendered render(boolean compact, boolean tagServer, TimestampFormat timestampFormat) {
         Rendered r = rendered;
-        if (r != null && r.compact() == compact && r.tagServer() == tagServer) {
+        if (r != null && r.compact() == compact && r.tagServer() == tagServer
+                && r.timestampFormat() == timestampFormat) {
             return r;
         }
-        r = build(compact, tagServer);
+        r = build(compact, tagServer, timestampFormat);
         rendered = r;
         return r;
     }
 
-    private Rendered build(boolean compact, boolean tagServer) {
-        TraceRecord rec = compact ? TraceCompactor.compact(record) : record;
+    private Rendered build(boolean compact, boolean tagServer, TimestampFormat timestampFormat) {
+        TraceRecord rec = record.withTimestampFormat(timestampFormat);
+        rec = compact ? TraceCompactor.compact(rec) : rec;
         String tag = tagServer && rec.header() != null && !rec.server().isEmpty() ? "[" + rec.server() + "] " : "";
         List<TraceHighlighter.Run> runs = TraceHighlighter.highlight(rec);
         int extra = tag.isEmpty() ? 0 : 1;
@@ -61,6 +65,6 @@ final class TraceEntry {
             ends[i + extra] = run.end() + shift;
             styles[i + extra] = run.token() == TraceHighlighter.Token.DS_COLOR ? TOKEN_COUNT + run.dsColor() : run.token().ordinal();
         }
-        return new Rendered(tag + rec.text(), starts, ends, styles, compact, tagServer);
+        return new Rendered(tag + rec.text(), starts, ends, styles, compact, tagServer, timestampFormat);
     }
 }

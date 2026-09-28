@@ -1,5 +1,6 @@
 package com.pointbluetech.dirxml.trace.ui;
 
+import com.pointbluetech.dirxml.trace.model.TimestampFormat;
 import com.pointbluetech.dirxml.trace.model.TraceHighlighter.Token;
 
 import javax.swing.JScrollBar;
@@ -42,6 +43,7 @@ final class TraceView extends JScrollPane {
     private boolean scrollPending;
     private volatile boolean tagServer;
     private volatile boolean compact;
+    private volatile TimestampFormat timestampFormat = TimestampFormat.DEFAULT;
 
     TraceView(int maxRecords) {
         this.maxRecords = maxRecords;
@@ -108,6 +110,15 @@ final class TraceView extends JScrollPane {
         return compact;
     }
 
+    /** Format for timestamps the viewer added; applies to records rendered afterwards. */
+    void setTimestampFormat(TimestampFormat timestampFormat) {
+        this.timestampFormat = timestampFormat;
+    }
+
+    TimestampFormat timestampFormat() {
+        return timestampFormat;
+    }
+
     int maxRecords() {
         return maxRecords;
     }
@@ -135,8 +146,9 @@ final class TraceView extends JScrollPane {
             return;
         }
         boolean c = compact, t = tagServer;
+        TimestampFormat f = timestampFormat;
         for (TraceEntry e : entries) {
-            lengths.addLast(add(doc, e.render(c, t)));
+            lengths.addLast(add(doc, e.render(c, t, f)));
         }
         // Let the document overshoot a little so trimming (a relayout of the whole view) is occasional.
         if (lengths.size() > maxRecords + Math.max(200, maxRecords / 10)) {
@@ -150,12 +162,13 @@ final class TraceView extends JScrollPane {
     /** Builds a complete document for these records. Safe to call on any thread. */
     Built build(Collection<TraceEntry> entries) {
         boolean c = compact, t = tagServer;
+        TimestampFormat f = timestampFormat;
         DefaultStyledDocument d = new DefaultStyledDocument();
         Deque<Integer> lens = new ArrayDeque<>();
         int skip = Math.max(0, entries.size() - maxRecords);
         for (TraceEntry e : entries) {
             if (skip-- > 0) continue;
-            lens.addLast(add(d, e.render(c, t)));
+            lens.addLast(add(d, e.render(c, t, f)));
         }
         return new Built(d, lens);
     }
