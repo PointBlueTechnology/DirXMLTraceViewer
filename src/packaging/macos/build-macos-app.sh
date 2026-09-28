@@ -12,18 +12,24 @@
 #
 # Output: target/macos/DirXML Trace Viewer.app and target/macos/DirXML-Trace-Viewer-<version>-<arch>.dmg
 # The build is for the architecture of the JDK used (arm64 on Apple silicon, x86_64 on Intel).
+#
+# Finder icon: src/packaging/macos/DirXMLTraceViewer.icns, passed to jpackage --icon.
+# Regenerate it from src/main/resources/icons/app-*.png with make-app-icon-icns.py
+# (same directory). That script packs the PNGs; it does not redraw them.
 
 set -eu
 
 APP_NAME="DirXML Trace Viewer"
 BUNDLE_ID="com.pointbluetech.dirxmltraceviewer"
 JAR=target/dirxml-trace-viewer.jar
+ICON=src/packaging/macos/DirXMLTraceViewer.icns
 OUT=target/macos
 MODULES=java.base,java.desktop,java.logging,java.prefs,jdk.crypto.ec
 
 : "${SIGN_IDENTITY:?Set SIGN_IDENTITY to your Developer ID Application identity}"
 JAVA21_HOME=${JAVA21_HOME:-$(/usr/libexec/java_home -v 21)}
 [ -f "$JAR" ] || { echo "Run mvn package first ($JAR not found)" >&2; exit 1; }
+[ -f "$ICON" ] || { echo "App icon not found ($ICON). Regenerate with src/packaging/macos/make-app-icon-icns.py" >&2; exit 1; }
 
 # jpackage needs a plain numeric version: 1.1.0-SNAPSHOT -> 1.1.0
 VERSION=$(unzip -p "$JAR" META-INF/MANIFEST.MF | sed -n 's/^Implementation-Version: *\([0-9.]*\).*/\1/p' | tr -d '\r')
@@ -51,6 +57,7 @@ cp "$JAR" "$OUT/input/"
 
 "$JAVA21_HOME/bin/jpackage" --type app-image --dest "$OUT" \
     --name "$APP_NAME" --app-version "$VERSION" \
+    --icon "$ICON" \
     --vendor "Point Blue Technology" --copyright "Copyright (c) 2026 Point Blue Technology" \
     --description "Viewer for NetIQ / OpenText Identity Manager driver trace" \
     --input "$OUT/input" --main-jar "$(basename "$JAR")" \

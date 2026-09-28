@@ -98,7 +98,9 @@ The script uses `target/dirxml-trace-viewer.jar`, so run it after step 2. It:
 1. re-signs FlatLaf's macOS native libraries inside the app's copy of the jar with the Developer ID
    (they carry FlatLaf's own signature, which notarization rejects);
 2. builds a trimmed Java 21 runtime with `jlink` and the app with `jpackage`, signed with hardened
-   runtime;
+   runtime. The Finder icon is `src/packaging/macos/DirXMLTraceViewer.icns` (`jpackage --icon`).
+   If the PNGs in `src/main/resources/icons/` change, regenerate it with
+   `python3 src/packaging/macos/make-app-icon-icns.py` before this step.
 3. notarizes the app, waits for the result and staples it;
 4. builds the DMG, signs it, notarizes it and staples it.
 
