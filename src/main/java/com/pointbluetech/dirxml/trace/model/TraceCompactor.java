@@ -55,7 +55,7 @@ public final class TraceCompactor {
         TraceRecord.Header header = h == null ? null : new TraceRecord.Header(map[h.timestampStart()],
                 map[h.timestampEnd()], map[h.nameStart()], map[h.nameEnd()],
                 h.threadStart() < 0 ? -1 : map[h.threadStart()], h.threadEnd() < 0 ? -1 : map[h.threadEnd()],
-                map[h.end()]);
+                map[h.end()], h.stamped());
         return new TraceRecord(r.server(), r.receivedAt(), r.eventType(), r.perpetratorDN(), out.toString(), spans,
                 r.driverName(), r.channel(), header);
     }

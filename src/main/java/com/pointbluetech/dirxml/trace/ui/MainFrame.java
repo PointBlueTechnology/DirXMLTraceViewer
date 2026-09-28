@@ -11,6 +11,7 @@ import com.pointbluetech.dirxml.trace.ldap.TraceEventSource;
 import com.pointbluetech.dirxml.trace.ldap.VaultConnection;
 import com.pointbluetech.dirxml.trace.model.Channel;
 import com.pointbluetech.dirxml.trace.model.RawTraceEvent;
+import com.pointbluetech.dirxml.trace.model.TimestampFormat;
 import com.pointbluetech.dirxml.trace.model.TraceFileReader;
 import com.pointbluetech.dirxml.trace.model.TraceFileWriter;
 import com.pointbluetech.dirxml.trace.model.TraceFilter;
@@ -21,6 +22,7 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
+import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -34,6 +36,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
@@ -284,6 +287,7 @@ public final class MainFrame extends JFrame {
         viewMenu.add(wrap);
         viewMenu.add(compact);
         viewMenu.add(autoScroll);
+        viewMenu.add(buildTimestampMenu());
         viewMenu.addSeparator();
         view.setFontSize(prefs.getFloat("fontSize", 13f));
         Action bigger = action("Larger Font", 0, e -> changeFont(1));
@@ -314,6 +318,32 @@ public final class MainFrame extends JFrame {
             Desktop.getDesktop().setAboutHandler(e -> updates.showAbout()); // macOS app menu → About
         }
         return bar;
+    }
+
+    /**
+     * Format of the timestamps added to live messages. Messages already received are re-rendered;
+     * timestamps that came with the text, as in trace files, keep their original format.
+     */
+    private JMenu buildTimestampMenu() {
+        JMenu menu = new JMenu("Timestamp Format");
+        menu.setToolTipText("For live trace. Timestamps in opened trace files are shown as written.");
+        TimestampFormat current = TimestampFormat.fromName(prefs.get("timestampFormat", TimestampFormat.DEFAULT.name()));
+        view.setTimestampFormat(current);
+        parser.setTimestampFormat(current);
+        ButtonGroup group = new ButtonGroup();
+        long now = System.currentTimeMillis();
+        for (TimestampFormat f : TimestampFormat.values()) {
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(f.label() + "  —  " + f.format(now), f == current);
+            item.addActionListener(e -> {
+                view.setTimestampFormat(f);
+                parser.setTimestampFormat(f);
+                prefs.put("timestampFormat", f.name());
+                rebuildView();
+            });
+            group.add(item);
+            menu.add(item);
+        }
+        return menu;
     }
 
     private JComponent buildToolBar() {
@@ -625,7 +655,7 @@ public final class MainFrame extends JFrame {
         processor.execute(() -> {
             TraceEntry e = new TraceEntry(nextSeq++, parser.parse(ev));
             if (liveFilter.matches(e.record)) {
-                e.render(view.compact(), view.tagServer());
+                e.render(view.compact(), view.tagServer(), view.timestampFormat());
             }
             processed.add(e);
         });
@@ -650,7 +680,7 @@ public final class MainFrame extends JFrame {
         if (recorder != null && !shown.isEmpty()) {
             try {
                 for (TraceEntry s : shown) {
-                    recorder.write(s.record, view.tagServer());
+                    recorder.write(s.record.withTimestampFormat(view.timestampFormat()), view.tagServer());
                 }
                 recorder.flush();
             } catch (IOException ex) {

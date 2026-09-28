@@ -1,9 +1,5 @@
 package com.pointbluetech.dirxml.trace.model;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +24,6 @@ public final class TraceParser {
      * it). The space before the tag is always present, so {@code "AD :"} has a blank tag.
      */
     private static final Pattern UNSTAMPED_HEADER = Pattern.compile("^[^:\\[\\s<][^:\\r\\n]*? (?:[A-Z]{2,3})?:");
-    private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss.SSS");
 
     private static final class State {
         String lastDriver;
@@ -36,29 +31,37 @@ public final class TraceParser {
     }
 
     private final Map<String, State> states = new HashMap<>();
+    private volatile TimestampFormat timestampFormat = TimestampFormat.DEFAULT;
+
+    /** Format for the timestamps {@link #parse} adds to messages parsed from now on. */
+    public void setTimestampFormat(TimestampFormat format) {
+        timestampFormat = format;
+    }
 
     public TraceRecord parse(RawTraceEvent event) {
         FormattedText formatted = DsTraceFormatter.format(event.formatString(), event.parameters());
         String text = formatted.text();
         List<FormattedText.ColorSpan> spans = formatted.colorSpans();
-        if (UNSTAMPED_HEADER.matcher(text).find()) {
-            String stamp = "[" + STAMP.format(LocalDateTime.ofInstant(Instant.ofEpochMilli(event.receivedAt()),
-                    ZoneId.systemDefault())) + "]:";
+        boolean stamped = UNSTAMPED_HEADER.matcher(text).find();
+        if (stamped) {
+            String stamp = "[" + timestampFormat.format(event.receivedAt()) + "]:";
             text = stamp + text;
             int shift = stamp.length();
             spans = spans.stream()
                     .map(c -> new FormattedText.ColorSpan(c.start() + shift, c.end() + shift, c.color()))
                     .toList();
         }
-        return attribute(event.server(), event.receivedAt(), event.eventType(), event.perpetratorDN(), text, spans);
+        return attribute(event.server(), event.receivedAt(), event.eventType(), event.perpetratorDN(), text, spans,
+                stamped);
     }
 
     /**
      * Parses text that is already formatted, e.g. a message read from an on-server trace file.
-     * Unlike {@link #parse} it does not interpret DSTrace {@code %} directives.
+     * Unlike {@link #parse} it does not interpret DSTrace {@code %} directives, and its timestamps
+     * are left as they are.
      */
     public TraceRecord parseText(String source, String text) {
-        return attribute(source, 0, 0, "", text, List.of());
+        return attribute(source, 0, 0, "", text, List.of(), false);
     }
 
     /** True if a line begins a new message in a trace file ({@code [timestamp]:name TAG:}). */
@@ -67,7 +70,7 @@ public final class TraceParser {
     }
 
     private TraceRecord attribute(String server, long receivedAt, int eventType, String perpetratorDN, String text,
-                                  List<FormattedText.ColorSpan> spans) {
+                                  List<FormattedText.ColorSpan> spans, boolean stamped) {
         if (!text.endsWith("\n")) {
             text = text + "\n";
         }
@@ -80,7 +83,7 @@ public final class TraceParser {
             st.lastDriver = name.isEmpty() ? null : name;
             st.lastChannel = Channel.fromThreadTag(m.group(3));
             header = new TraceRecord.Header(m.start(1) - 1, m.end(1) + 1, m.start(2), m.end(2),
-                    m.group(3) == null ? -1 : m.start(3), m.group(3) == null ? -1 : m.end(3), m.end());
+                    m.group(3) == null ? -1 : m.start(3), m.group(3) == null ? -1 : m.end(3), m.end(), stamped);
         }
         return new TraceRecord(server, receivedAt, eventType, perpetratorDN, text, spans, st.lastDriver,
                 st.lastChannel, header);
