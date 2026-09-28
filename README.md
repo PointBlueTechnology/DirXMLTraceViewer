@@ -236,6 +236,12 @@ It needs a Developer ID Application certificate in your keychain and notarizatio
 stored with `xcrun notarytool store-credentials`. Without `NOTARY_PROFILE` it signs but does not
 notarize. The output is for the architecture of the JDK used; set `JAVA21_HOME` to choose it.
 
+The Finder icon is `src/packaging/macos/DirXMLTraceViewer.icns`.
+`src/packaging/macos/make-app-icon-icns.py` packs it from
+`src/main/resources/icons/app-*.png` without resampling; the build script passes that file to
+`jpackage --icon`. The window and taskbar icons still come from the PNGs inside the jar.
+A missing or undecodable PNG is skipped; start the viewer with `-Ddirxml.debug=true` to log why.
+
 Driver state and start/stop/restart use the IDM engine's LDAP extended operations (OIDs
 `2.16.840.1.113719.1.14.100.13`, `.15`, `.17` and `.101`). The viewer encodes them itself with
 JLDAP, so no IDM libraries are needed.
@@ -264,6 +270,7 @@ src/main/java/com/pointbluetech/dirxml/trace/
   ui/                Swing UI (FlatLaf dark theme)
 src/dist/            launch scripts
 src/assembly/        distribution zip layout
+src/packaging/macos/ signed macOS app (`build-macos-app.sh`, Finder `.icns`)
 ```
 
 ## License
