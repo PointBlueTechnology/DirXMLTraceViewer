@@ -21,6 +21,7 @@ syntax coloring. It can also open trace files.
   subscriber Service channel `SST`, Engine/Other), and by text ("Contains").
 - **Find** in the displayed trace, with every match highlighted.
 - **Compact Whitespace.** Hides the blank lines that pad XSLT policy trace.
+- **Timestamp formats.** U.S., European, ISO 8601 or time only for live trace.
 - **Record to file** as the trace is displayed, or save what is on screen.
 - **Open trace files** from the server (drag and drop works too). The same coloring and filters
   apply; large files are fine (tested with 650 MB).
@@ -159,6 +160,10 @@ A driver with trace level 0 produces no trace. Set it to 3 or higher to see poli
 - **Pause / Resume:** freezes the view. Trace is still collected (and recorded) meanwhile.
 - **View → Compact Whitespace:** hides blank lines. Recorded files keep the original spacing.
 - **View → Wrap Lines**, **Auto-Scroll**, and font size (⌘= / ⌘−).
+- **View → Timestamp Format:** U.S. (`09/28/26 14:05:12.345`, the default), European
+  (`28.09.26`), European with slashes (`28/09/26`), ISO 8601 (`2026-09-28`), or time only. It
+  applies to the timestamps the viewer adds to live trace, including messages already shown and
+  recorded files. Timestamps in opened trace files are shown as written.
 - With more than one server, each message is prefixed with `[server]`.
 
 ### Trace files
