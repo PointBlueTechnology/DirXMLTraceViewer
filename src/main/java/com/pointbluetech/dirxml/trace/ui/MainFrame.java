@@ -95,7 +95,7 @@ public final class MainFrame extends JFrame {
     private static final int MAX_PER_TICK = 5_000;
     /** While paused nothing is dropped, unless the heap gets this full. */
     private static final double PAUSED_HEAP_LIMIT = 0.85;
-    private static final int MAX_TRACE_LEVEL = 10;
+    private static final int MAX_TRACE_LEVEL = 100;
     private static final String ALL_SERVERS = "All servers";
 
     private final Preferences prefs = Preferences.userNodeForPackage(MainFrame.class);
