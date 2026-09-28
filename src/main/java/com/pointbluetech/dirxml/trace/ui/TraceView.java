@@ -50,6 +50,9 @@ final class TraceView extends JScrollPane {
         pane.setForeground(TracePalette.FOREGROUND);
         pane.setCaretColor(TracePalette.FOREGROUND);
         pane.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        // Right-click copies the selection. Installed before the caret policy so that policy
+        // applies to the caret TraceCopy installs.
+        TraceCopy.install(pane);
         ((DefaultCaret) pane.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
         pane.setStyledDocument(doc);
         setViewportView(pane);
