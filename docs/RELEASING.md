@@ -3,14 +3,15 @@
 How a DirXML Trace Viewer release is built, signed, notarized and published. The examples release
 version `1.2.0` from `1.2.0-SNAPSHOT`; substitute your versions.
 
-Each release has four assets:
+Each release has five assets:
 
 | Asset | Built by |
 |---|---|
-| `DirXML-Trace-Viewer-<version>-arm64.dmg` | `src/packaging/macos/build-macos-app.sh` (macOS only) |
-| `dirxml-trace-viewer-<version>.zip` | `mvn package` |
-| `dirxml-trace-viewer.jar` | `mvn package` |
-| `SHA256SUMS` | `shasum` over the three files above |
+| `DirXML-Trace-Viewer-<version>-arm64.dmg` | `app/src/packaging/macos/build-macos-app.sh` (macOS only) |
+| `dirxml-trace-viewer-<version>.zip` | `mvn package` (in `app/target`) |
+| `dirxml-trace-viewer.jar` | `mvn package` (in `app/target`) |
+| `dirxml-trace-core-<version>.jar` | `mvn package` (in `trace-core/target`): the library other programs depend on |
+| `SHA256SUMS` | `shasum` over the four files above |
 
 ## One-time setup (macOS)
 
@@ -53,7 +54,7 @@ Run everything from the project root, on an up-to-date `main` with a clean worki
 
 ```sh
 git pull --ff-only
-mvn -q versions:set -DnewVersion=1.2.0 -DgenerateBackupPoms=false
+mvn -q versions:set -DnewVersion=1.2.0 -DgenerateBackupPoms=false   # the parent and both modules
 git commit -am "Release 1.2.0"
 ```
 
@@ -63,12 +64,13 @@ git commit -am "Release 1.2.0"
 mvn clean package
 ```
 
-All tests must pass. This writes `target/dirxml-trace-viewer.jar` and
-`target/dirxml-trace-viewer-1.2.0.zip`. Check the version and, optionally, that the zip starts:
+All tests must pass. This writes `app/target/dirxml-trace-viewer.jar`,
+`app/target/dirxml-trace-viewer-1.2.0.zip` and `trace-core/target/dirxml-trace-core-1.2.0.jar`.
+Check the version and, optionally, that the zip starts:
 
 ```sh
-unzip -p target/dirxml-trace-viewer.jar META-INF/MANIFEST.MF | grep Implementation-Version   # 1.2.0
-unzip -q target/dirxml-trace-viewer-1.2.0.zip -d /tmp/rel && /tmp/rel/dirxml-trace-viewer-1.2.0/dirxml-trace-viewer.sh --demo
+unzip -p app/target/dirxml-trace-viewer.jar META-INF/MANIFEST.MF | grep Implementation-Version   # 1.2.0
+unzip -q app/target/dirxml-trace-viewer-1.2.0.zip -d /tmp/rel && /tmp/rel/dirxml-trace-viewer-1.2.0/dirxml-trace-viewer.sh --demo
 ```
 
 ### 3. Tag and push
@@ -84,7 +86,7 @@ git push origin main v1.2.0
 SIGN_IDENTITY="Developer ID Application: Jerry COMBS (76TU99ENEP)" \
 NOTARY_PROFILE=dirxml-notary \
 JAVA21_HOME=/Users/jcombs/Library/Java/JavaVirtualMachines/azul-21.0.8/Contents/Home \
-src/packaging/macos/build-macos-app.sh
+app/src/packaging/macos/build-macos-app.sh
 ```
 
 | Variable | Required | Meaning |
@@ -93,19 +95,19 @@ src/packaging/macos/build-macos-app.sh
 | `NOTARY_PROFILE` | for a release | The `notarytool` keychain profile; without it the app is signed but not notarized |
 | `JAVA21_HOME` | no | JDK 21 to bundle; defaults to `/usr/libexec/java_home -v 21` |
 
-The script uses `target/dirxml-trace-viewer.jar`, so run it after step 2. It:
+The script uses `app/target/dirxml-trace-viewer.jar` (paths are resolved from its own location), so run it after step 2. It:
 
 1. re-signs FlatLaf's macOS native libraries inside the app's copy of the jar with the Developer ID
    (they carry FlatLaf's own signature, which notarization rejects);
 2. builds a trimmed Java 21 runtime with `jlink` and the app with `jpackage`, signed with hardened
-   runtime. The Finder icon is `src/packaging/macos/DirXMLTraceViewer.icns` (`jpackage --icon`).
-   If the PNGs in `src/main/resources/icons/` change, regenerate it with
-   `python3 src/packaging/macos/make-app-icon-icns.py` before this step.
+   runtime. The Finder icon is `app/src/packaging/macos/DirXMLTraceViewer.icns` (`jpackage --icon`).
+   If the PNGs in `app/src/main/resources/icons/` change, regenerate it with
+   `python3 app/src/packaging/macos/make-app-icon-icns.py` before this step.
 3. notarizes the app, waits for the result and staples it;
 4. builds the DMG, signs it, notarizes it and staples it.
 
-It writes `target/macos/DirXML Trace Viewer.app` and
-`target/macos/DirXML-Trace-Viewer-1.2.0-arm64.dmg`. Notarization usually takes a few minutes per
+It writes `app/target/macos/DirXML Trace Viewer.app` and
+`app/target/macos/DirXML-Trace-Viewer-1.2.0-arm64.dmg`. Notarization usually takes a few minutes per
 submission.
 
 To build the DMG for a release that is already tagged (e.g. from another checkout), use a separate
@@ -113,7 +115,7 @@ worktree so nothing else changes:
 
 ```sh
 git worktree add /tmp/rel-1.2.0 v1.2.0
-cd /tmp/rel-1.2.0 && mvn clean package && SIGN_IDENTITY=… NOTARY_PROFILE=dirxml-notary src/packaging/macos/build-macos-app.sh
+cd /tmp/rel-1.2.0 && mvn clean package && SIGN_IDENTITY=… NOTARY_PROFILE=dirxml-notary app/src/packaging/macos/build-macos-app.sh
 ```
 
 ### 5. Check the notarization result
@@ -142,7 +144,7 @@ xcrun notarytool log <submission-id> --keychain-profile dirxml-notary
 To check the DMG the way a downloaded copy is checked, mark it quarantined and assess it:
 
 ```sh
-cp target/macos/DirXML-Trace-Viewer-1.2.0-arm64.dmg /tmp/check.dmg
+cp app/target/macos/DirXML-Trace-Viewer-1.2.0-arm64.dmg /tmp/check.dmg
 xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" /tmp/check.dmg
 spctl --assess --type open --context context:primary-signature --verbose=2 /tmp/check.dmg
 # → accepted, source=Notarized Developer ID
@@ -152,10 +154,11 @@ spctl --assess --type open --context context:primary-signature --verbose=2 /tmp/
 
 ```sh
 mkdir -p /tmp/release-1.2.0 && cd /tmp/release-1.2.0
-cp ~/path/to/DirXMLTraceViewer/target/macos/DirXML-Trace-Viewer-1.2.0-arm64.dmg \
-   ~/path/to/DirXMLTraceViewer/target/dirxml-trace-viewer-1.2.0.zip \
-   ~/path/to/DirXMLTraceViewer/target/dirxml-trace-viewer.jar .
-shasum -a 256 DirXML-Trace-Viewer-1.2.0-arm64.dmg dirxml-trace-viewer-1.2.0.zip dirxml-trace-viewer.jar > SHA256SUMS
+cp ~/path/to/DirXMLTraceViewer/app/target/macos/DirXML-Trace-Viewer-1.2.0-arm64.dmg \
+   ~/path/to/DirXMLTraceViewer/app/target/dirxml-trace-viewer-1.2.0.zip \
+   ~/path/to/DirXMLTraceViewer/app/target/dirxml-trace-viewer.jar \
+   ~/path/to/DirXMLTraceViewer/trace-core/target/dirxml-trace-core-1.2.0.jar .
+shasum -a 256 DirXML-Trace-Viewer-1.2.0-arm64.dmg dirxml-trace-viewer-1.2.0.zip dirxml-trace-viewer.jar dirxml-trace-core-1.2.0.jar > SHA256SUMS
 ```
 
 Keep the file names without paths, so `shasum -a 256 -c SHA256SUMS` works in a download folder.
@@ -166,7 +169,7 @@ Write the release notes (what changed, and a download table) to a file, then:
 
 ```sh
 gh release create v1.2.0 \
-    DirXML-Trace-Viewer-1.2.0-arm64.dmg dirxml-trace-viewer-1.2.0.zip dirxml-trace-viewer.jar SHA256SUMS \
+    DirXML-Trace-Viewer-1.2.0-arm64.dmg dirxml-trace-viewer-1.2.0.zip dirxml-trace-viewer.jar dirxml-trace-core-1.2.0.jar SHA256SUMS \
     --repo PointBlueTechnology/DirXMLTraceViewer \
     --title "DirXML Trace Viewer 1.2.0" --notes-file notes.md --verify-tag --latest
 ```

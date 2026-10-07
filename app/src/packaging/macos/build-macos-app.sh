@@ -2,7 +2,8 @@
 # Builds a signed, notarized macOS app and DMG with its own Java runtime, so users need neither
 # Java nor admin rights: they can copy the app anywhere (e.g. ~/Applications) and open it.
 #
-# Run from the project root after "mvn package". Environment:
+# Run after "mvn package" (from the repository root or the app module; paths are resolved from
+# this script's location). Environment:
 #   SIGN_IDENTITY   Developer ID Application identity, e.g.
 #                   "Developer ID Application: Jane Doe (TEAMID1234)"   (required)
 #   NOTARY_PROFILE  notarytool keychain profile (xcrun notarytool store-credentials); if unset the
@@ -10,7 +11,7 @@
 #   JAVA21_HOME     JDK 21 used for jlink/jpackage and bundled as the runtime
 #                   (default: /usr/libexec/java_home -v 21)
 #
-# Output: target/macos/DirXML Trace Viewer.app and target/macos/DirXML-Trace-Viewer-<version>-<arch>.dmg
+# Output: app/target/macos/DirXML Trace Viewer.app and app/target/macos/DirXML-Trace-Viewer-<version>-<arch>.dmg
 # The build is for the architecture of the JDK used (arm64 on Apple silicon, x86_64 on Intel).
 #
 # Finder icon: src/packaging/macos/DirXMLTraceViewer.icns, passed to jpackage --icon.
@@ -21,9 +22,10 @@ set -eu
 
 APP_NAME="DirXML Trace Viewer"
 BUNDLE_ID="com.pointbluetech.dirxmltraceviewer"
-JAR=target/dirxml-trace-viewer.jar
-ICON=src/packaging/macos/DirXMLTraceViewer.icns
-OUT=target/macos
+APP_DIR=$(cd "$(dirname "$0")/../../.." && pwd)     # the app module
+JAR=$APP_DIR/target/dirxml-trace-viewer.jar
+ICON=$APP_DIR/src/packaging/macos/DirXMLTraceViewer.icns
+OUT=$APP_DIR/target/macos
 MODULES=java.base,java.desktop,java.logging,java.prefs,jdk.crypto.ec
 
 : "${SIGN_IDENTITY:?Set SIGN_IDENTITY to your Developer ID Application identity}"

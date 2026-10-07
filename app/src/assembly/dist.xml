@@ -11,13 +11,13 @@
             <source>${project.build.directory}/dirxml-trace-viewer.jar</source>
         </file>
         <file>
-            <source>README.md</source>
+            <source>${project.basedir}/../README.md</source>
         </file>
         <file>
-            <source>LICENSE</source>
+            <source>${project.basedir}/../LICENSE</source>
         </file>
         <file>
-            <source>THIRD-PARTY-NOTICES.txt</source>
+            <source>${project.basedir}/../THIRD-PARTY-NOTICES.txt</source>
         </file>
     </files>
     <fileSets>
