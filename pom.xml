@@ -6,7 +6,8 @@
 
     <groupId>com.pointbluetech</groupId>
     <artifactId>DirXMLTraceViewer</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
+    <packaging>pom</packaging>
     <name>DirXML Trace Viewer</name>
 
     <licenses>
@@ -17,129 +18,54 @@
         </license>
     </licenses>
 
+    <!-- Two modules:
+           trace-core  the DSTrace parser, formatter, highlighter, filters, file reader and the LDAP
+                       event-monitoring source. A library other programs use (DirXMLDevWeb's trace view).
+                       Depends on jldap only.
+           app         the Swing viewer: the window, dialogs, update check, launchers, the macOS app.
+         Both carry this version; a release attaches the app jar, the zip, the DMG and the trace-core jar. -->
+    <modules>
+        <module>trace-core</module>
+        <module>app</module>
+    </modules>
+
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main.class>com.pointbluetech.dirxml.trace.Main</main.class>
+        <jldap.version>4.3</jldap.version>
+        <junit.version>5.11.3</junit.version>
     </properties>
 
-    <dependencies>
-        <!-- Novell/OpenText LDAP classes for Java; includes the eDirectory event (DSTrace) extensions.
-             The IDM driver operations are encoded with it too (see IdmExtendedOperations). -->
-        <dependency>
-            <groupId>com.novell.ldap</groupId>
-            <artifactId>jldap</artifactId>
-            <version>4.3</version>
-        </dependency>
-        <dependency>
-            <groupId>com.formdev</groupId>
-            <artifactId>flatlaf</artifactId>
-            <version>3.5.4</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.11.3</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.novell.ldap</groupId>
+                <artifactId>jldap</artifactId>
+                <version>${jldap.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.4.2</version>
-                <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>${main.class}</mainClass>
-                        </manifest>
-                    </archive>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <!-- The executable jar: java -jar target/dirxml-trace-viewer.jar -->
-                            <outputFile>${project.build.directory}/dirxml-trace-viewer.jar</outputFile>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                                    <resource>META-INF/LICENSE</resource>
-                                    <file>LICENSE</file>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                                    <resource>META-INF/THIRD-PARTY-NOTICES.txt</resource>
-                                    <file>THIRD-PARTY-NOTICES.txt</file>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>${main.class}</mainClass>
-                                    <manifestEntries>
-                                        <!-- FlatLaf loads a native library for macOS/Windows window decorations -->
-                                        <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
-                                        <Implementation-Title>${project.name}</Implementation-Title>
-                                        <Implementation-Version>${project.version}</Implementation-Version>
-                                    </manifestEntries>
-                                </transformer>
-                            </transformers>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                        <!-- Dependencies' licenses are reproduced in THIRD-PARTY-NOTICES.txt;
-                                             META-INF/LICENSE is this project's own license. -->
-                                        <exclude>META-INF/LICENSE</exclude>
-                                        <exclude>META-INF/LICENSE.txt</exclude>
-                                        <exclude>META-INF/NOTICE</exclude>
-                                        <exclude>META-INF/NOTICE.txt</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <!-- target/dirxml-trace-viewer-<version>.zip: the jar, startup scripts and README -->
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.7.1</version>
-                <executions>
-                    <execution>
-                        <id>dist</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <descriptors>
-                                <descriptor>src/assembly/dist.xml</descriptor>
-                            </descriptors>
-                            <finalName>dirxml-trace-viewer-${project.version}</finalName>
-                            <appendAssemblyId>false</appendAssemblyId>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.2</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
-
 </project>

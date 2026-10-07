@@ -219,30 +219,57 @@ mvn package
 
 This produces:
 
-- `target/dirxml-trace-viewer.jar`: the executable jar with all dependencies.
-- `target/dirxml-trace-viewer-<version>.zip`: the jar, the launchers, this README, the license and
-  third-party notices.
+- `app/target/dirxml-trace-viewer.jar`: the executable jar with all dependencies.
+- `app/target/dirxml-trace-viewer-<version>.zip`: the jar, the launchers, this README, the license
+  and third-party notices.
+- `trace-core/target/dirxml-trace-core-<version>.jar`: the library (below).
+
+The repository is two Maven modules. `trace-core` is the DSTrace parser, formatter, highlighter,
+filter, compactor and file reader (`com.pointbluetech.dirxml.trace.model`) and the LDAP
+event-monitoring source with driver status and control (`com.pointbluetech.dirxml.trace.ldap`);
+it has no UI and depends on jldap only. `app` is the Swing viewer on top of it.
+
+### Using the library
+
+Other programs read and render trace with `trace-core` so that a line means the same thing
+everywhere (DirXMLDevWeb's trace view does this). It is attached to every release as
+`dirxml-trace-core-<version>.jar`; install it with
+`mvn install:install-file -Dfile=dirxml-trace-core-<version>.jar -DgroupId=com.pointbluetech -DartifactId=dirxml-trace-core -Dversion=<version> -Dpackaging=jar`
+and depend on `com.pointbluetech:dirxml-trace-core`. The pieces:
+
+- `TraceParser.parse(RawTraceEvent)` for live events, `TraceParser.parseText` for a file's text;
+  both give `TraceRecord`s with server, time, driver, channel, text, the engine's colour spans and
+  the header positions. `TraceFileReader` reads a trace file into records.
+- `TraceHighlighter.highlight(record)` gives colouring runs (XML markup, status keywords, DSTrace
+  colours, header) to render however you like; `TraceCompactor.compact` drops padding lines;
+  `TraceRecord.withTimestampFormat` rewrites viewer-added timestamps.
+- `TraceFilter` matches records by channel, driver name or DN, and text.
+- `LdapTraceEventSource` streams the DSTrace categories through the eDirectory event-monitoring
+  extension; `VaultConnection`, `ServerInfo`, `DriverStatus` and `IdmExtendedOperations` discover
+  driver sets and servers, read state and trace levels, and start, stop and restart drivers.
+  `CertificateTrust.setPrompt` decides what happens with an untrusted LDAPS certificate (the app
+  shows a dialog; a server answers from its settings).
 
 ### macOS app
 
 The full release process, including signing and notarization, is in
 [docs/RELEASING.md](docs/RELEASING.md).
 
-`src/packaging/macos/build-macos-app.sh` builds the signed, notarized app and DMG with a bundled
-Java 21 runtime (using `jlink` and `jpackage`). Run it on a Mac after `mvn package`:
+`app/src/packaging/macos/build-macos-app.sh` builds the signed, notarized app and DMG with a
+bundled Java 21 runtime (using `jlink` and `jpackage`). Run it on a Mac after `mvn package`:
 
 ```sh
 SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 NOTARY_PROFILE=your-notary-profile \
-src/packaging/macos/build-macos-app.sh
+app/src/packaging/macos/build-macos-app.sh
 ```
 
 It needs a Developer ID Application certificate in your keychain and notarization credentials
 stored with `xcrun notarytool store-credentials`. Without `NOTARY_PROFILE` it signs but does not
 notarize. The output is for the architecture of the JDK used; set `JAVA21_HOME` to choose it.
 
-The Finder icon is `src/packaging/macos/DirXMLTraceViewer.icns`.
-`src/packaging/macos/make-app-icon-icns.py` packs it from
+The Finder icon is `app/src/packaging/macos/DirXMLTraceViewer.icns`.
+`app/src/packaging/macos/make-app-icon-icns.py` packs it from
 `src/main/resources/icons/app-*.png` without resampling; the build script passes that file to
 `jpackage --icon`. The window and taskbar icons still come from the PNGs inside the jar.
 A missing or undecodable PNG is skipped; start the viewer with `-Ddirxml.debug=true` to log why.
