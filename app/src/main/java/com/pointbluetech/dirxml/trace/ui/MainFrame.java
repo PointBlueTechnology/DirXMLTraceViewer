@@ -137,6 +137,11 @@ public final class MainFrame extends JFrame {
     private final JTree tree = new JTree(treeModel);
     private final Map<Channel, JCheckBox> channelBoxes = new EnumMap<>(Channel.class);
     private final JTextField textFilter = new JTextField(16);
+    private final JCheckBoxMenuItem autoScroll = new JCheckBoxMenuItem("Auto-Scroll", true);
+    private final JumpBar jumpBar = new JumpBar(view, () -> {
+        autoScroll.setSelected(false);
+        view.setAutoScroll(false);
+    });
     private final JToggleButton pauseButton = new JToggleButton("Pause");
     private final JToggleButton recordButton = new JToggleButton("Record to File…");
     private final JLabel status = new JLabel(" ");
@@ -267,6 +272,19 @@ public final class MainFrame extends JFrame {
         edit.add(findPrev);
         bar.add(edit);
 
+        JMenu navigate = new JMenu("Navigate");
+        Action nextMarker = action("Next Marker", 0, e -> jumpBar.jump(1));
+        nextMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_CLOSE_BRACKET, menuMask));
+        Action prevMarker = action("Previous Marker", 0, e -> jumpBar.jump(-1));
+        prevMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_OPEN_BRACKET, menuMask));
+        Action lastMarker = action("Most Recent Marker", 0, e -> jumpBar.jump(0));
+        lastMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_CLOSE_BRACKET, menuMask | KeyEvent.SHIFT_DOWN_MASK));
+        navigate.add(nextMarker);
+        navigate.add(prevMarker);
+        navigate.add(lastMarker);
+        navigate.add(action("Go to Time…", KeyEvent.VK_T, e -> jumpBar.focusTime()));
+        bar.add(navigate);
+
         JMenu viewMenu = new JMenu("View");
         JCheckBoxMenuItem wrap = new JCheckBoxMenuItem("Wrap Lines", prefs.getBoolean("wrap", false));
         wrap.addActionListener(e -> {
@@ -282,7 +300,6 @@ public final class MainFrame extends JFrame {
             rebuildView();
         });
         view.setCompact(compact.isSelected());
-        JCheckBoxMenuItem autoScroll = new JCheckBoxMenuItem("Auto-Scroll", true);
         autoScroll.addActionListener(e -> view.setAutoScroll(autoScroll.isSelected()));
         viewMenu.add(wrap);
         viewMenu.add(compact);
@@ -482,7 +499,10 @@ public final class MainFrame extends JFrame {
     private JComponent buildRight() {
         JPanel right = new JPanel(new BorderLayout());
         showing.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
-        right.add(showing, BorderLayout.NORTH);
+        JPanel top = new JPanel(new BorderLayout());
+        top.add(showing, BorderLayout.CENTER);
+        top.add(jumpBar, BorderLayout.EAST);
+        right.add(top, BorderLayout.NORTH);
         right.add(view, BorderLayout.CENTER);
         right.add(findBar, BorderLayout.SOUTH);
         return right;

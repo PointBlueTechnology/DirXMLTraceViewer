@@ -42,6 +42,12 @@ final class TracePalette {
         TOKENS.put(Token.STATUS_WARNING, new Color(0xFFB454));
         TOKENS.put(Token.STATUS_SUCCESS, new Color(0x7BD88F));
         TOKENS.put(Token.STATUS_RETRY, new Color(0xE5C07B));
+        TOKENS.put(Token.RULE_NAME, new Color(0xDCDCAA));
+        TOKENS.put(Token.JSON_KEY, new Color(0x9CDCFE));
+        TOKENS.put(Token.JSON_STRING, new Color(0xCE9178));
+        TOKENS.put(Token.JSON_NUMBER, new Color(0xB5CEA8));
+        TOKENS.put(Token.JSON_LITERAL, new Color(0x569CD6));
+        TOKENS.put(Token.JSON_PUNCT, new Color(0x808080));
         BOLD.put(Token.DRIVER, true);
         BOLD.put(Token.THREAD_SUB, true);
         BOLD.put(Token.THREAD_PUB, true);
@@ -49,6 +55,7 @@ final class TracePalette {
         BOLD.put(Token.STATUS_ERROR, true);
         BOLD.put(Token.STATUS_WARNING, true);
         BOLD.put(Token.STATUS_SUCCESS, true);
+        BOLD.put(Token.RULE_NAME, true);
     }
 
     private TracePalette() {

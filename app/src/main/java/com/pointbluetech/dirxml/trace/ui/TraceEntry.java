@@ -3,7 +3,9 @@ package com.pointbluetech.dirxml.trace.ui;
 import com.pointbluetech.dirxml.trace.model.TimestampFormat;
 import com.pointbluetech.dirxml.trace.model.TraceCompactor;
 import com.pointbluetech.dirxml.trace.model.TraceHighlighter;
+import com.pointbluetech.dirxml.trace.model.TraceMarker;
 import com.pointbluetech.dirxml.trace.model.TraceRecord;
+import com.pointbluetech.dirxml.trace.model.TraceTime;
 
 import java.util.List;
 
@@ -27,10 +29,34 @@ final class TraceEntry {
     final long seq;
     final TraceRecord record;
     private volatile Rendered rendered;
+    /** The record's {@link TraceMarker}, or {@link #NONE}; computed on first use. */
+    private volatile Object marker;
+    private static final Object NONE = new Object();
+    /** The header's time of day in milliseconds, -1 without a header; -2 until computed. */
+    private volatile long timeOfDay = -2;
 
     TraceEntry(long seq, TraceRecord record) {
         this.seq = seq;
         this.record = record;
+    }
+
+    TraceMarker marker() {
+        Object m = marker;
+        if (m == null) {
+            TraceMarker k = TraceMarker.of(record);
+            m = k == null ? NONE : k;
+            marker = m;
+        }
+        return m == NONE ? null : (TraceMarker) m;
+    }
+
+    long timeOfDay() {
+        long t = timeOfDay;
+        if (t == -2) {
+            t = TraceTime.timeOfDay(record);
+            timeOfDay = t;
+        }
+        return t;
     }
 
     Rendered render(boolean compact, boolean tagServer, TimestampFormat timestampFormat) {

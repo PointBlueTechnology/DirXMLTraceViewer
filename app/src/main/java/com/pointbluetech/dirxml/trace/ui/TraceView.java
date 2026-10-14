@@ -2,6 +2,7 @@ package com.pointbluetech.dirxml.trace.ui;
 
 import com.pointbluetech.dirxml.trace.model.TimestampFormat;
 import com.pointbluetech.dirxml.trace.model.TraceHighlighter.Token;
+import com.pointbluetech.dirxml.trace.model.TraceMarker;
 
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
@@ -10,13 +11,17 @@ import javax.swing.SwingUtilities;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
+import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
+import java.awt.Color;
 import java.awt.Font;
+import java.awt.Rectangle;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.Iterator;
 
 /**
  * The colored trace pane. Keeps about {@code maxRecords} records in the document.
@@ -29,7 +34,7 @@ import java.util.Deque;
 final class TraceView extends JScrollPane {
 
     /** A document built off the event thread, ready to {@link #install}. */
-    record Built(DefaultStyledDocument doc, Deque<Integer> lengths) {
+    record Built(DefaultStyledDocument doc, Deque<Integer> lengths, Deque<TraceEntry> entries) {
     }
 
     private final WrappingTextPane pane = new WrappingTextPane();
@@ -37,6 +42,12 @@ final class TraceView extends JScrollPane {
     private final AttributeSet[] styles = new AttributeSet[TraceEntry.TOKEN_COUNT + 16];
     /** Length of each displayed record, oldest first, for trimming. */
     private Deque<Integer> lengths = new ArrayDeque<>();
+    /** The displayed records, parallel to {@link #lengths}, for the jumps. */
+    private Deque<TraceEntry> entries = new ArrayDeque<>();
+    /** The highlight on the record a jump landed on. */
+    private Object landedTag;
+    private static final DefaultHighlighter.DefaultHighlightPainter LANDED =
+            new DefaultHighlighter.DefaultHighlightPainter(new Color(0x3A3D41));
     private DefaultStyledDocument doc = new DefaultStyledDocument();
     private volatile int maxRecords;
     private boolean autoScroll = true;
@@ -149,6 +160,7 @@ final class TraceView extends JScrollPane {
         TimestampFormat f = timestampFormat;
         for (TraceEntry e : entries) {
             lengths.addLast(add(doc, e.render(c, t, f)));
+            this.entries.addLast(e);
         }
         // Let the document overshoot a little so trimming (a relayout of the whole view) is occasional.
         if (lengths.size() > maxRecords + Math.max(200, maxRecords / 10)) {
@@ -165,18 +177,22 @@ final class TraceView extends JScrollPane {
         TimestampFormat f = timestampFormat;
         DefaultStyledDocument d = new DefaultStyledDocument();
         Deque<Integer> lens = new ArrayDeque<>();
+        Deque<TraceEntry> shown = new ArrayDeque<>();
         int skip = Math.max(0, entries.size() - maxRecords);
         for (TraceEntry e : entries) {
             if (skip-- > 0) continue;
             lens.addLast(add(d, e.render(c, t, f)));
+            shown.addLast(e);
         }
-        return new Built(d, lens);
+        return new Built(d, lens, shown);
     }
 
     /** Shows a document from {@link #build}. Call on the event thread. */
     void install(Built built) {
         doc = built.doc();
         lengths = built.lengths();
+        entries = built.entries();
+        landedTag = null;
         pane.setStyledDocument(doc);
         if (autoScroll) {
             scrollToEnd();
@@ -184,7 +200,7 @@ final class TraceView extends JScrollPane {
     }
 
     void clear() {
-        install(new Built(new DefaultStyledDocument(), new ArrayDeque<>()));
+        install(new Built(new DefaultStyledDocument(), new ArrayDeque<>(), new ArrayDeque<>()));
     }
 
     private int add(DefaultStyledDocument d, TraceEntry.Rendered r) {
@@ -203,6 +219,7 @@ final class TraceView extends JScrollPane {
         int remove = 0;
         while (lengths.size() > keep) {
             remove += lengths.removeFirst();
+            entries.removeFirst();
         }
         if (remove > 0) {
             try {
@@ -211,6 +228,78 @@ final class TraceView extends JScrollPane {
                 throw new IllegalStateException(e);
             }
         }
+    }
+
+    /**
+     * Moves to a record of {@code kind} (issue #2): {@code direction} 1 is the next after the caret,
+     * -1 the previous before it, 0 the most recent. Returns false when there is none to go to.
+     * Call on the event thread, with auto-scroll off.
+     */
+    boolean jump(TraceMarker kind, int direction) {
+        int caret = pane.getCaretPosition();
+        int offset = 0, found = -1, foundLength = 0;
+        Iterator<Integer> lens = lengths.iterator();
+        for (TraceEntry e : entries) {
+            int len = lens.next();
+            if (e.marker() == kind) {
+                if (direction > 0 && offset > caret) {
+                    found = offset;
+                    foundLength = len;
+                    break;
+                }
+                if (direction == 0 || (direction < 0 && offset < caret)) {
+                    found = offset;
+                    foundLength = len;
+                }
+            }
+            offset += len;
+        }
+        return land(found, foundLength);
+    }
+
+    /**
+     * Moves to the first record at or after {@code timeOfDay} (milliseconds since midnight, from
+     * the headers; a record without one takes its predecessor's). False when none is that late.
+     */
+    boolean goToTime(long timeOfDay) {
+        int offset = 0;
+        long last = -1;
+        Iterator<Integer> lens = lengths.iterator();
+        for (TraceEntry e : entries) {
+            int len = lens.next();
+            long t = e.timeOfDay();
+            last = t >= 0 ? t : last;
+            if (last >= timeOfDay) {
+                return land(offset, len);
+            }
+            offset += len;
+        }
+        return false;
+    }
+
+    /** Puts the caret on the record at {@code offset}, marks its first line and scrolls it to the top. */
+    private boolean land(int offset, int length) {
+        if (offset < 0) {
+            return false;
+        }
+        try {
+            if (landedTag != null) {
+                pane.getHighlighter().removeHighlight(landedTag);
+            }
+            String text = doc.getText(offset, Math.min(length, doc.getLength() - offset));
+            int nl = text.indexOf('\n');
+            landedTag = pane.getHighlighter().addHighlight(offset, offset + (nl < 0 ? text.length() : nl), LANDED);
+            pane.setCaretPosition(offset);
+            java.awt.geom.Rectangle2D at = pane.modelToView2D(offset);
+            if (at != null) {   // null before the pane is laid out
+                Rectangle r = at.getBounds();
+                r.height = Math.max(r.height, getViewport().getHeight());
+                SwingUtilities.invokeLater(() -> pane.scrollRectToVisible(r));
+            }
+        } catch (BadLocationException e) {
+            return false;
+        }
+        return true;
     }
 
     /**
