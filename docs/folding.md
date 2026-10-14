@@ -1,7 +1,7 @@
 # Folding trace output: design note (#3)
 
-Status: **proposed 2026-10-14.** Decided so far, on #3: web first, the desktop later, and no new
-dependency. Section 6 lists what is still open.
+Status: **decided 2026-10-14** (section 6: the recommendations, all four). Decided earlier, on #3:
+web first, the desktop later, and no new dependency. F1 is being built.
 
 The issue asks for controls that fold channel output by **policy set**, by **policy** and by
 **XML**. A collapsed region shows one summary line in place of everything it holds, and a click
@@ -102,6 +102,13 @@ serves, in any page.
    hidden.
 4. **Save and Copy.** Write the folded regions in full, or the summary lines as shown?
    **Recommended:** in full. Folding is a reading aid, and a saved trace should not lose lines.
+
+Decided 2026-10-14 (Jerry: "Go with the recommendations"):
+
+1. **B**: a region folds its own thread's records; other threads' lines stay visible where they fall.
+2. **Whole XML documents** in this change; elements later if wanted.
+3. **Everything open** at the start, with *fold all* one click away.
+4. **Save and Copy write folded regions in full.**
 
 ## 7. Phases
 
