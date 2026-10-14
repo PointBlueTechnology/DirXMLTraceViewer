@@ -7,7 +7,8 @@ import java.util.regex.Pattern;
 
 /**
  * Computes syntax-highlighting runs for a trace record. Layers, lowest priority first:
- * XML markup, status/error keywords, the engine's own DSTrace colors, then the message header.
+ * XML and JSON markup, rule names, status/error keywords, the engine's own DSTrace colors, then
+ * the message header.
  */
 public final class TraceHighlighter {
 
@@ -15,6 +16,7 @@ public final class TraceHighlighter {
         TEXT, TIMESTAMP, DRIVER, THREAD_SUB, THREAD_PUB, THREAD_SVC, PUNCT,
         XML_BRACKET, XML_TAG, XML_ATTR, XML_VALUE, XML_COMMENT, XML_PI, XML_CDATA,
         STATUS_ERROR, STATUS_WARNING, STATUS_SUCCESS, STATUS_RETRY,
+        RULE_NAME, JSON_KEY, JSON_STRING, JSON_NUMBER, JSON_LITERAL, JSON_PUNCT,
         DS_COLOR
     }
 
@@ -28,6 +30,13 @@ public final class TraceHighlighter {
     private static final Pattern ERROR_WORDS = Pattern.compile(
             "Code\\(-\\d+\\)[^\\r\\n]*|\\b[\\w.$]+(?:Exception|Error)\\b[^\\r\\n]*|\\bDirXML Log Event\\b");
 
+    /**
+     * The rule a policy is evaluating or applying, as the engine traces it ("Evaluating selection
+     * criteria for rule {0}." and "Applying rule {0}."): group 1 is the name, without the period.
+     */
+    private static final Pattern RULE = Pattern.compile(
+            "(?:Evaluating selection criteria for rule|Applying rule) ([^\\r\\n]+?)\\.?[ \\t]*(?=\\r?\\n|$)");
+
     private static final int DS_BASE = Token.values().length;
 
     private TraceHighlighter() {
@@ -40,6 +49,11 @@ public final class TraceHighlighter {
         int[] style = new int[n];
 
         lexXml(text, style);
+        lexJson(text, style);
+        Matcher rule = RULE.matcher(text);
+        while (rule.find()) {
+            fillIf(style, rule.start(1), rule.end(1), Token.TEXT, Token.RULE_NAME);
+        }
         markStatus(text, style);
         Matcher m = ERROR_WORDS.matcher(text);
         while (m.find()) {
@@ -113,6 +127,177 @@ public final class TraceHighlighter {
                 i++;
             }
             i = i < n ? s.indexOf('<', i) : -1;
+        }
+    }
+
+    /**
+     * JSON in a message (a REST shim's request or response, compact or pretty-printed): each
+     * {@code {} or {@code [} outside XML that opens a well-formed value is lexed into keys, strings,
+     * numbers, literals and punctuation. Anything that is not well-formed is left as text.
+     */
+    static void lexJson(String s, int[] style) {
+        int n = s.length();
+        int[] marks = null;   // 0 = untouched, else Token ordinal + 1; reused, cleared after each try
+        for (int i = 0; i < n; i++) {
+            char c = s.charAt(i);
+            if ((c != '{' && c != '[') || style[i] != Token.TEXT.ordinal() || !jsonOpening(s, i)) {
+                continue;
+            }
+            if (marks == null) {
+                marks = new int[n];
+            }
+            JsonLexer lexer = new JsonLexer(s, marks);
+            int end = lexer.value(i);
+            if (end > i) {
+                for (int k = i; k < end; k++) {
+                    if (marks[k] != 0 && style[k] == Token.TEXT.ordinal()) {
+                        style[k] = marks[k] - 1;
+                    }
+                }
+            }
+            java.util.Arrays.fill(marks, i, Math.min(n, Math.max(lexer.hi, end)), 0);
+            if (end > i) {
+                i = end - 1;
+            }
+        }
+    }
+
+    /** Whether the bracket at {@code i} is followed by what a JSON object or array starts with. */
+    private static boolean jsonOpening(String s, int i) {
+        int j = i + 1;
+        while (j < s.length() && Character.isWhitespace(s.charAt(j))) j++;
+        if (j >= s.length()) {
+            return false;
+        }
+        char d = s.charAt(j);
+        return s.charAt(i) == '{' ? d == '"' || d == '}' : d == '{' || d == '[' || d == '"' || d == ']';
+    }
+
+    /** A strict recursive-descent JSON lexer that marks tokens and gives up (returns -1) on anything malformed. */
+    private static final class JsonLexer {
+        private final String s;
+        private final int[] marks;
+        private int depth;
+        /** One past the furthest index marked, for clearing. */
+        int hi;
+
+        JsonLexer(String s, int[] marks) {
+            this.s = s;
+            this.marks = marks;
+        }
+
+        /** The end of the value starting at {@code i} (after whitespace), or -1. */
+        int value(int i) {
+            i = ws(i);
+            if (i >= s.length() || ++depth > 64) {
+                return -1;
+            }
+            try {
+                char c = s.charAt(i);
+                return switch (c) {
+                    case '{' -> object(i);
+                    case '[' -> array(i);
+                    case '"' -> string(i, Token.JSON_STRING);
+                    default -> c == '-' || Character.isDigit(c) ? number(i) : literal(i);
+                };
+            } finally {
+                depth--;
+            }
+        }
+
+        private int object(int i) {
+            mark(i, i + 1, Token.JSON_PUNCT);
+            int p = ws(i + 1);
+            if (p < s.length() && s.charAt(p) == '}') {
+                mark(p, p + 1, Token.JSON_PUNCT);
+                return p + 1;
+            }
+            while (true) {
+                p = ws(p);
+                if (p >= s.length() || s.charAt(p) != '"') return -1;
+                p = string(p, Token.JSON_KEY);
+                if (p < 0) return -1;
+                p = ws(p);
+                if (p >= s.length() || s.charAt(p) != ':') return -1;
+                mark(p, p + 1, Token.JSON_PUNCT);
+                p = value(p + 1);
+                if (p < 0) return -1;
+                p = ws(p);
+                if (p >= s.length()) return -1;
+                mark(p, p + 1, Token.JSON_PUNCT);
+                if (s.charAt(p) == '}') return p + 1;
+                if (s.charAt(p) != ',') return -1;
+                p++;
+            }
+        }
+
+        private int array(int i) {
+            mark(i, i + 1, Token.JSON_PUNCT);
+            int p = ws(i + 1);
+            if (p < s.length() && s.charAt(p) == ']') {
+                mark(p, p + 1, Token.JSON_PUNCT);
+                return p + 1;
+            }
+            while (true) {
+                p = value(p);
+                if (p < 0) return -1;
+                p = ws(p);
+                if (p >= s.length()) return -1;
+                mark(p, p + 1, Token.JSON_PUNCT);
+                if (s.charAt(p) == ']') return p + 1;
+                if (s.charAt(p) != ',') return -1;
+                p++;
+            }
+        }
+
+        private int string(int i, Token t) {
+            int p = i + 1;
+            while (p < s.length()) {
+                char c = s.charAt(p);
+                if (c == '\\') {
+                    p += 2;
+                } else if (c == '"') {
+                    mark(i, p + 1, t);
+                    return p + 1;
+                } else if (c == '\n') {
+                    return -1;
+                } else {
+                    p++;
+                }
+            }
+            return -1;
+        }
+
+        private int number(int i) {
+            int p = i;
+            if (s.charAt(p) == '-') p++;
+            int digits = p;
+            while (p < s.length() && (Character.isDigit(s.charAt(p)) || ".eE+-".indexOf(s.charAt(p)) >= 0)) p++;
+            if (p == digits) return -1;
+            mark(i, p, Token.JSON_NUMBER);
+            return p;
+        }
+
+        private int literal(int i) {
+            for (String w : new String[] {"true", "false", "null"}) {
+                if (s.startsWith(w, i)) {
+                    mark(i, i + w.length(), Token.JSON_LITERAL);
+                    return i + w.length();
+                }
+            }
+            return -1;
+        }
+
+        private int ws(int i) {
+            while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
+            return i;
+        }
+
+        private void mark(int from, int to, Token t) {
+            for (int k = from; k < to && k < marks.length; k++) {
+                marks[k] = t.ordinal() + 1;
+            }
+            hi = Math.max(hi, Math.min(to, marks.length));
         }
     }
 

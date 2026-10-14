@@ -16,7 +16,12 @@ syntax coloring. It can also open trace files.
 - **Driver control.** Start, stop and restart a driver on one server or on all of them, and change
   driver or driver-set trace levels, all over LDAP.
 - **Syntax coloring.** Timestamps, driver names and channel tags; XDS/XML tags, attributes and
-  values; `<status>` levels (error, warning, success, retry); and the engine's own DSTrace colors.
+  values; JSON keys, strings, numbers and literals (a REST shim's bodies); the name of each rule a
+  policy evaluates or applies; `<status>` levels (error, warning, success, retry); and the
+  engine's own DSTrace colors.
+- **Jump markers.** Step to the next or previous driver start, publisher or subscriber event,
+  subscriber shim call, policy set, policy, end of transaction, log event or pump to eDirectory,
+  or to the most recent one; or go to a time of day.
 - **Filtering.** By driver (select it in the tree), by channel (Subscriber `ST`, Publisher `PT`,
   subscriber Service channel `SST`, Engine/Other), and by text ("Contains").
 - **Find** in the displayed trace, with every match highlighted.
@@ -158,6 +163,16 @@ A driver with trace level 0 produces no trace. Set it to 3 or higher to see poli
 - **Find…** (⌘F / Ctrl+F): highlights matches in what is displayed without hiding anything. Enter
   and Shift+Enter step through matches, Esc closes it. Opening Find pauses the view.
 - **Pause / Resume:** freezes the view. Trace is still collected (and recorded) meanwhile.
+- **Jump to** (above the trace): choose a kind of place, then ◀ / ▶ step to the previous / next
+  one from where you are (the caret: click to set it), and *Most recent* goes to the latest. The
+  kinds are the engine's own messages: *Driver start* (`Reading driver information`), *Publisher
+  event* (`Receiving DOM document from application`), *Subscriber event* (`Start transaction`),
+  *Subscriber shim* (`Submitting document to subscriber shim`), *Policy set* (`Applying … policies`),
+  *Policy* (`Applying policy:` on `ST`/`PT`), *End transaction*, *Log event* (`DirXML Log Event`) and
+  *Pump to eDirectory* (`Pumping XDS to eDirectory`). **Time** takes a time of day (`10:15`,
+  `10:15:12.345`) and goes to the first message at or after it, by the timestamps in the
+  messages. A jump turns Auto-Scroll off and marks the line it landed on; only what is displayed
+  (after the filters) is searched.
 - **View → Compact Whitespace:** hides blank lines. Recorded files keep the original spacing.
 - **View → Wrap Lines**, **Auto-Scroll**, and font size (⌘= / ⌘−).
 - **View → Timestamp Format:** U.S. (`09/28/26 14:05:12.345`, the default), European
@@ -208,6 +223,8 @@ releases API, with no identifiers or usage data, and stays silent when offline.
 | ⌘R        | Record to file      | ⌘K          | Clear                 |
 | ⌘S        | Save displayed trace| ⌘= / ⌘−     | Larger / smaller font |
 | F5        | Refresh status      | ⌘Q          | Exit                  |
+| ⌘] / ⌘[   | Next / previous marker | ⇧⌘]      | Most recent marker    |
+| ⌘T        | Go to time          |             |                       |
 
 ## Building
 
@@ -240,8 +257,10 @@ and depend on `com.pointbluetech:dirxml-trace-core`. The pieces:
 - `TraceParser.parse(RawTraceEvent)` for live events, `TraceParser.parseText` for a file's text;
   both give `TraceRecord`s with server, time, driver, channel, text, the engine's colour spans and
   the header positions. `TraceFileReader` reads a trace file into records.
-- `TraceHighlighter.highlight(record)` gives colouring runs (XML markup, status keywords, DSTrace
-  colours, header) to render however you like; `TraceCompactor.compact` drops padding lines;
+- `TraceHighlighter.highlight(record)` gives colouring runs (XML and JSON markup, rule names,
+  status keywords, DSTrace colours, header) to render however you like; `TraceMarker.of(record)`
+  says which kind of jump marker a record is, if any, and `TraceTime.timeOfDay(record)` reads its
+  header's time of day; `TraceCompactor.compact` drops padding lines;
   `TraceRecord.withTimestampFormat` rewrites viewer-added timestamps.
 - `TraceFilter` matches records by channel, driver name or DN, and text.
 - `LdapTraceEventSource` streams the DSTrace categories through the eDirectory event-monitoring
