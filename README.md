@@ -260,7 +260,9 @@ and depend on `com.pointbluetech:dirxml-trace-core`. The pieces:
 - `TraceHighlighter.highlight(record)` gives colouring runs (XML and JSON markup, rule names,
   status keywords, DSTrace colours, header) to render however you like; `TraceMarker.of(record)`
   says which kind of jump marker a record is, if any, and `TraceTime.timeOfDay(record)` reads its
-  header's time of day; `TraceCompactor.compact` drops padding lines;
+  header's time of day; `TraceFolds` (fed the records in order) gives each record the fold regions
+  it opens and the one it sits in — policy sets, policies and XML documents, per thread
+  (docs/folding.md); `TraceCompactor.compact` drops padding lines;
   `TraceRecord.withTimestampFormat` rewrites viewer-added timestamps.
 - `TraceFilter` matches records by channel, driver name or DN, and text.
 - `LdapTraceEventSource` streams the DSTrace categories through the eDirectory event-monitoring
