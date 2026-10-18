@@ -42,15 +42,16 @@ final class JumpBar extends JPanel {
                 return super.getListCellRendererComponent(list, value instanceof TraceMarker m ? m.label() : value, index, selected, focus);
             }
         });
+        kind.setSelectedItem(TraceMarker.SUBSCRIBER_EVENT);
         kind.setToolTipText("The kind of place to jump to");
         JButton prev = new JButton("◀");
-        prev.setToolTipText("Previous " + "(" + shortcut("[") + ")");
+        prev.setToolTipText("Previous " + "(" + shortcut("LEFT") + ")");
         prev.addActionListener(e -> jump(-1));
         JButton next = new JButton("▶");
-        next.setToolTipText("Next (" + shortcut("]") + ")");
+        next.setToolTipText("Next (" + shortcut("RIGHT") + ")");
         next.addActionListener(e -> jump(1));
         JButton last = new JButton("Most recent");
-        last.setToolTipText("The most recent one (" + shortcut("⇧]") + ")");
+        last.setToolTipText("The most recent one (" + shortcut("⇧RIGHT") + ")");
         last.addActionListener(e -> jump(0));
         time.setToolTipText("A time of day, e.g. 10:15 or 10:15:12.345; Enter goes to the first message at or after it");
         time.putClientProperty("JTextField.placeholderText", "hh:mm:ss");
