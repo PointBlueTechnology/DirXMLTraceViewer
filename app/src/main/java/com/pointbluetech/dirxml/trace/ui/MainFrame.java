@@ -15,11 +15,12 @@ import com.pointbluetech.dirxml.trace.model.TimestampFormat;
 import com.pointbluetech.dirxml.trace.model.TraceFileReader;
 import com.pointbluetech.dirxml.trace.model.TraceFileWriter;
 import com.pointbluetech.dirxml.trace.model.TraceFilter;
+import com.pointbluetech.dirxml.trace.model.TraceMarker;
 import com.pointbluetech.dirxml.trace.model.TraceParser;
-import com.pointbluetech.dirxml.trace.model.TraceRecord;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.ActionMap;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
@@ -45,6 +46,7 @@ import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 import javax.swing.JTree;
 import javax.swing.KeyStroke;
+import javax.swing.InputMap;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -229,6 +231,7 @@ public final class MainFrame extends JFrame {
                 return false;
             }
         });
+        installTraceShortcuts();
     }
 
     /** Called once the window is visible. */
@@ -242,6 +245,100 @@ public final class MainFrame extends JFrame {
             startDemo();
         } else {
             connect();
+        }
+    }
+
+    private void installTraceShortcuts() {
+        InputMap windowKeys = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap windowActions = getRootPane().getActionMap();
+        
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_P, 0), "next-publisher-event",
+            () -> jumpShortcut(TraceMarker.PUBLISHER_EVENT, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-publisher-event", () -> jumpShortcut(TraceMarker.PUBLISHER_EVENT, -1));
+
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), "next-subscriber-event",
+            () -> jumpShortcut(TraceMarker.SUBSCRIBER_EVENT, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-subscriber-event", () -> jumpShortcut(TraceMarker.SUBSCRIBER_EVENT, -1));
+        
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_M, 0), "next-policy-set",
+            () -> jumpShortcut(TraceMarker.POLICY_SET, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_M, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-policy-set", () -> jumpShortcut(TraceMarker.POLICY_SET, -1));
+        
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_N, 0), "next-policy",
+            () -> jumpShortcut(TraceMarker.POLICY, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_N, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-policy", () -> jumpShortcut(TraceMarker.POLICY, -1));
+        
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_R, 0), "next-policy-result",
+            () -> jumpShortcut(TraceMarker.POLICY_RESULT, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-policy-result", () -> jumpShortcut(TraceMarker.POLICY_RESULT, -1));
+        
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_X, 0), "next-subscriber-execute",
+            () -> jumpShortcut(TraceMarker.SUBSCRIBER_EXECUTE, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-subscriber-execute", () -> jumpShortcut(TraceMarker.SUBSCRIBER_EXECUTE, -1));
+        
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_E, 0), "next-pumping-xds",
+            () -> jumpShortcut(TraceMarker.PUMPING_XDS, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_E, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-pumping-xds", () -> jumpShortcut(TraceMarker.PUMPING_XDS, -1));
+        
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_L, 0), "next-log",
+            () -> jumpShortcut(TraceMarker.DIRXML_LOG_EVENT, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-log", () -> jumpShortcut(TraceMarker.DIRXML_LOG_EVENT, -1));
+
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_T, 0), "next-end-transaction",
+            () -> jumpShortcut(TraceMarker.END_TRANSACTION, 1));
+        bind(windowKeys, windowActions, KeyStroke.getKeyStroke(KeyEvent.VK_T, KeyEvent.SHIFT_DOWN_MASK),
+            "previous-end-transaction", () -> jumpShortcut(TraceMarker.END_TRANSACTION, -1));
+
+        installTraceNavigation(view.textPane().getInputMap(JComponent.WHEN_FOCUSED), view.textPane().getActionMap());
+        installTraceNavigation(view.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT), view.getActionMap());
+    }
+
+    private void installTraceNavigation(InputMap traceKeys, ActionMap traceActions) {
+        bind(traceKeys, traceActions, KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "trace-page-down",
+            () -> runTraceAction("page-down"));
+        bind(traceKeys, traceActions, KeyStroke.getKeyStroke(KeyEvent.VK_B, 0), "trace-page-up",
+            () -> runTraceAction("page-up"));
+        bind(traceKeys, traceActions, KeyStroke.getKeyStroke(KeyEvent.VK_J, 0), "trace-next-line",
+            () -> view.scrollLine(1));
+        bind(traceKeys, traceActions, KeyStroke.getKeyStroke(KeyEvent.VK_K, 0), "trace-previous-line",
+            () -> view.scrollLine(-1));
+    }
+
+    private void jumpShortcut(TraceMarker marker, int direction) {
+        autoScroll.setSelected(false);
+        view.setAutoScroll(false);
+        view.jump(marker, direction);
+    }
+
+    private void runTraceAction(String name) {
+        Action action = view.textPane().getActionMap().get(name);
+        if (action != null) {
+            action.actionPerformed(new java.awt.event.ActionEvent(view.textPane(),
+                    java.awt.event.ActionEvent.ACTION_PERFORMED, name));
+        }
+    }
+
+    private static void bind(InputMap inputMap, ActionMap actionMap, KeyStroke key, String name, Runnable handler) {
+        bind(inputMap, actionMap, key, name, new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                handler.run();
+            }
+        });
+    }
+
+    private static void bind(InputMap inputMap, ActionMap actionMap, KeyStroke key, String name, Action action) {
+        if (action != null) {
+            inputMap.put(key, name);
+            actionMap.put(name, action);
         }
     }
 
