@@ -11,14 +11,15 @@ import java.util.regex.Pattern;
 public enum TraceMarker {
 
     DRIVER_START("Driver start", "Reading driver information"),
-    PUBLISHER_EVENT("Publisher event", "Receiving DOM document from application"),
-    SUBSCRIBER_EVENT("Subscriber event", "Start transaction"),
-    SUBSCRIBER_EXECUTE("Subscriber shim", "Submitting document to subscriber shim"),
-    POLICY("Policy", "Applying policy:"),
-    POLICY_SET("Policy set", "Applying [^\\r\\n]*? policies"),
-    END_TRANSACTION("End transaction", "End transaction"),
-    LOG_EVENT("Log event", "DirXML Log Event"),
-    PUMP_XDS("Pump to eDirectory", "Pumping XDS to eDirectory");
+    PUBLISHER_EVENT("Publisher event [p/P]", "Receiving DOM document from application"),
+    SUBSCRIBER_EVENT("Subscriber event [s/S]", "Start transaction"),
+    SUBSCRIBER_EXECUTE("Subscriber shim  [x/X]", "Submitting document to subscriber shim"),
+    POLICY_SET("Policy set [m/M]", "Applying [^\\r\\n]*? policies"),
+    POLICY("Policy [n/N]", "Applying policy:"),
+    POLICY_RESULT("Policy result [r/R]", "Query from policy result"),
+    END_TRANSACTION("End transaction [t/T]", "End transaction"),
+    DIRXML_LOG_EVENT("Log event [l/L]", "DirXML Log Event"),
+    PUMPING_XDS("Pumping XDS to eDirectory [e/E]", "Pumping XDS to eDirectory");
 
     private final String label;
     private final Pattern pattern;
@@ -43,6 +44,10 @@ public enum TraceMarker {
         int from = h == null ? 0 : Math.min(h.end(), text.length());
         int nl = text.indexOf('\n', from);
         String first = text.substring(from, nl < 0 ? text.length() : nl);
+        // Special case for DirXML Log Event: it follows a new line so use whole text to match
+        if (first.length() == 0 && TraceMarker.DIRXML_LOG_EVENT.pattern.matcher(text).find()) {
+           return DIRXML_LOG_EVENT;
+        }
         for (TraceMarker m : values()) {
             if (m.pattern.matcher(first).find()) {
                 if (m == POLICY && (h == null || h.threadStart() < 0

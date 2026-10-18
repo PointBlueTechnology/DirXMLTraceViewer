@@ -84,7 +84,7 @@ public final class TraceFolds {
 
     /** A place that ends the policy work in progress: a new event, the shim, the end of a transaction, a pump. */
     private static boolean boundary(TraceMarker m) {
-        return m != null && m != TraceMarker.POLICY && m != TraceMarker.POLICY_SET && m != TraceMarker.LOG_EVENT;
+        return m != null && m != TraceMarker.POLICY && m != TraceMarker.POLICY_SET && m != TraceMarker.DIRXML_LOG_EVENT;
     }
 
     private Region open(List<Region> opens, Kind kind, int parent, String label) {
