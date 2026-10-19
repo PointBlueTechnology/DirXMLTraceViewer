@@ -34,8 +34,8 @@ final class JumpBar extends JPanel {
             TraceMarker.POLICY, 'N',
             TraceMarker.POLICY_RESULT, 'R',
             TraceMarker.END_TRANSACTION, 'T',
-            TraceMarker.DIRXML_LOG_EVENT, 'L',
-            TraceMarker.PUMPING_XDS, 'E'));
+            TraceMarker.LOG_EVENT, 'L',
+            TraceMarker.PUMP_XDS, 'E'));
 
     private final TraceView view;
     private final Runnable stopAutoScroll;

@@ -30,9 +30,9 @@ class MarkersAndHighlightTest {
         assertEquals(TraceMarker.POLICY_SET, marker("[10/14/26 10:15:12.345]:AD PT:Applying input transformation policies.\n"));
         assertEquals(TraceMarker.POLICY, marker("[10/14/26 10:15:12.345]:AD ST:Applying policy: sub-ctp-Example.\n"));
         assertEquals(TraceMarker.END_TRANSACTION, marker("[10/14/26 10:15:12.345]:AD ST:End transaction.\n"));
-        assertEquals(TraceMarker.DIRXML_LOG_EVENT, marker("[10/14/26 10:15:12.345]:AD ST:\nDirXML Log Event -------------------\n     Driver:   \\T\\system\\ds\\AD\n"));
-        assertEquals(TraceMarker.PUMPING_XDS, marker("[10/14/26 10:15:12.345]:AD PT:Pumping XDS to eDirectory.\n"));
-        assertEquals(TraceMarker.DIRXML_LOG_EVENT, marker("[10/14/26 10:15:12.345]:DirXML Log Event -------------------\n     Driver:   \\T\\system\\ds\\AD\n"));
+        assertEquals(TraceMarker.LOG_EVENT, marker("[10/14/26 10:15:12.345]:AD ST:\nDirXML Log Event -------------------\n     Driver:   \\T\\system\\ds\\AD\n"));
+        assertEquals(TraceMarker.PUMP_XDS, marker("[10/14/26 10:15:12.345]:AD PT:Pumping XDS to eDirectory.\n"));
+        assertEquals(TraceMarker.LOG_EVENT, marker("[10/14/26 10:15:12.345]:DirXML Log Event -------------------\n     Driver:   \\T\\system\\ds\\AD\n"));
         assertEquals(TraceMarker.POLICY_RESULT, marker("[10/14/26 10:15:12.345]:AD ST:Query from policy result\n<nds/>\n"));
     }
 
