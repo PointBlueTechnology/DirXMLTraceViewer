@@ -324,11 +324,11 @@ public final class MainFrame extends JFrame {
 
         JMenu navigate = new JMenu("Navigate");
         Action nextMarker = action("Next Marker", 0, e -> jumpBar.jump(1));
-        nextMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, menuMask));
+        nextMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, menuMask));
         Action prevMarker = action("Previous Marker", 0, e -> jumpBar.jump(-1));
-        prevMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, menuMask));
+        prevMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_UP, menuMask));
         Action lastMarker = action("Most Recent Marker", 0, e -> jumpBar.jump(0));
-        lastMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, menuMask | KeyEvent.SHIFT_DOWN_MASK));
+        lastMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, menuMask | KeyEvent.SHIFT_DOWN_MASK));
         navigate.add(nextMarker);
         navigate.add(prevMarker);
         navigate.add(lastMarker);
