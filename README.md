@@ -82,7 +82,7 @@ To try the viewer without a server, start it with `--demo`.
 The launchers and `java -jar` pass arguments on, so another tool can start the viewer already
 showing something (DirXMLDev's `driver.trace view` does this):
 
-```
+```txt
 --open FILE                                   open a trace file
 --connect URL|HOST[:PORT] --bind-dn DN        connect and stream; URL is ldaps://host:636 or
       [--search-base BASE] [--driver NAME]    ldap://host:389, a bare host means LDAPS on 636;
@@ -216,15 +216,21 @@ releases API, with no identifiers or usage data, and stays silent when offline.
 
 ⌘ on macOS, Ctrl elsewhere.
 
-| Keys      | Action              | Keys        | Action                |
-|-----------|---------------------|-------------|-----------------------|
-| ⌘N        | Connect             | ⌘F          | Find                  |
-| ⌘O        | Open trace file     | ⌘G / ⇧⌘G    | Find next / previous  |
-| ⌘R        | Record to file      | ⌘K          | Clear                 |
-| ⌘S        | Save displayed trace| ⌘= / ⌘−     | Larger / smaller font |
-| F5        | Refresh status      | ⌘Q          | Exit                  |
-| ⌘] / ⌘[   | Next / previous marker | ⇧⌘]      | Most recent marker    |
-| ⌘T        | Go to time          |             |                       |
+| Keys                | Action                            | Keys                | Action                          |
+|---------------------|-----------------------------------|---------------------|---------------------------------|
+| ⌘N                  | Connect                           | ⌘F                  | Find                            |
+| ⌘O                  | Open trace file                   | ⌘G / ⇧⌘G            | Find next / previous            |
+| ⌘R                  | Record to file                    | ⌘K                  | Clear                           |
+| ⌘S                  | Save displayed trace              | ⌘= / ⌘−             | Larger / smaller font           |
+| F5                  | Refresh status                    | ⌘Q                  | Exit                            |
+| ⌘Right / ⌘Left      | Next / previous marker            | ⇧⌘Right             | Most recent marker              |
+| ⌘T                  | Go to time                        |                     |                                 |
+| p / P               | Next / previous publisher event   | s / S               | Next / previous subscriber event|
+| n / N               | Next / previous policy            | m / M               | Next / previous policy set      |
+| r / R               | Next / previous policy result     | x / X               | Next / previous subscriber shim |
+| e / E               | Next / previous pumping XDS       | l / L               | Next / previous DirXML log event|
+| t / T               | Next / previous end transaction   | j / k               | Scroll one line down / up       |
+| Space               | Page down                         | b                   | Page up                         |
 
 ## Building
 
@@ -315,7 +321,7 @@ JLDAP, so no IDM libraries are needed.
 
 ## Project layout
 
-```
+```txt
 src/main/java/com/pointbluetech/dirxml/trace/
   Main.java          entry point (--demo for a synthetic stream)
   ldap/              LDAP connections, discovery, per-server status, driver control, event streams

@@ -16,14 +16,15 @@ import com.pointbluetech.dirxml.trace.model.TraceFileReader;
 import com.pointbluetech.dirxml.trace.model.TraceFileWriter;
 import com.pointbluetech.dirxml.trace.model.TraceFilter;
 import com.pointbluetech.dirxml.trace.model.TraceParser;
-import com.pointbluetech.dirxml.trace.model.TraceRecord;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.ActionMap;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
@@ -229,6 +230,7 @@ public final class MainFrame extends JFrame {
                 return false;
             }
         });
+        installTraceShortcuts();
     }
 
     /** Called once the window is visible. */
@@ -242,6 +244,54 @@ public final class MainFrame extends JFrame {
             startDemo();
         } else {
             connect();
+        }
+    }
+
+    /**
+     * Single keys that work while the trace has focus, so typing in a field is never taken for one:
+     * a letter jumps to the next of its kind ({@link JumpBar#KEYS}), with Shift to the previous;
+     * j / k scroll a line, Space / b a page.
+     */
+    private void installTraceShortcuts() {
+        installTraceShortcuts(view.textPane().getInputMap(JComponent.WHEN_FOCUSED), view.textPane().getActionMap());
+        installTraceShortcuts(view.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT), view.getActionMap());
+    }
+
+    private void installTraceShortcuts(InputMap keys, ActionMap actions) {
+        JumpBar.KEYS.forEach((marker, key) -> {
+            String name = marker.name().toLowerCase().replace('_', '-');
+            int code = key;   // VK_A..VK_Z are the capital letters
+            bind(keys, actions, KeyStroke.getKeyStroke(code, 0), "next-" + name, () -> jumpBar.jump(marker, 1));
+            bind(keys, actions, KeyStroke.getKeyStroke(code, KeyEvent.SHIFT_DOWN_MASK), "previous-" + name,
+                    () -> jumpBar.jump(marker, -1));
+        });
+        bind(keys, actions, KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "trace-page-down", () -> runTraceAction("page-down"));
+        bind(keys, actions, KeyStroke.getKeyStroke(KeyEvent.VK_B, 0), "trace-page-up", () -> runTraceAction("page-up"));
+        bind(keys, actions, KeyStroke.getKeyStroke(KeyEvent.VK_J, 0), "trace-next-line", () -> view.scrollLine(1));
+        bind(keys, actions, KeyStroke.getKeyStroke(KeyEvent.VK_K, 0), "trace-previous-line", () -> view.scrollLine(-1));
+    }
+
+    private void runTraceAction(String name) {
+        Action action = view.textPane().getActionMap().get(name);
+        if (action != null) {
+            action.actionPerformed(new java.awt.event.ActionEvent(view.textPane(),
+                    java.awt.event.ActionEvent.ACTION_PERFORMED, name));
+        }
+    }
+
+    private static void bind(InputMap inputMap, ActionMap actionMap, KeyStroke key, String name, Runnable handler) {
+        bind(inputMap, actionMap, key, name, new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                handler.run();
+            }
+        });
+    }
+
+    private static void bind(InputMap inputMap, ActionMap actionMap, KeyStroke key, String name, Action action) {
+        if (action != null) {
+            inputMap.put(key, name);
+            actionMap.put(name, action);
         }
     }
 
@@ -274,11 +324,11 @@ public final class MainFrame extends JFrame {
 
         JMenu navigate = new JMenu("Navigate");
         Action nextMarker = action("Next Marker", 0, e -> jumpBar.jump(1));
-        nextMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_CLOSE_BRACKET, menuMask));
+        nextMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, menuMask));
         Action prevMarker = action("Previous Marker", 0, e -> jumpBar.jump(-1));
-        prevMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_OPEN_BRACKET, menuMask));
+        prevMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_UP, menuMask));
         Action lastMarker = action("Most Recent Marker", 0, e -> jumpBar.jump(0));
-        lastMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_CLOSE_BRACKET, menuMask | KeyEvent.SHIFT_DOWN_MASK));
+        lastMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, menuMask | KeyEvent.SHIFT_DOWN_MASK));
         navigate.add(nextMarker);
         navigate.add(prevMarker);
         navigate.add(lastMarker);

@@ -103,6 +103,13 @@ final class TraceView extends JScrollPane {
         }
     }
 
+    /** Scrolls the viewport by one rendered text line without changing the caret. */
+    void scrollLine(int direction) {
+        int lineHeight = Math.max(1, pane.getFontMetrics(pane.getFont()).getHeight());
+        JScrollBar bar = getVerticalScrollBar();
+        bar.setValue(bar.getValue() + Integer.signum(direction) * lineHeight);
+    }
+
     /** Prefix message headers with the server name; applies to records rendered afterwards. */
     void setTagServer(boolean tagServer) {
         this.tagServer = tagServer;
