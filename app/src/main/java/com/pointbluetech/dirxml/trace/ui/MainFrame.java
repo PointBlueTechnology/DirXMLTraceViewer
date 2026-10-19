@@ -323,12 +323,14 @@ public final class MainFrame extends JFrame {
         bar.add(edit);
 
         JMenu navigate = new JMenu("Navigate");
+        // ⌘↑/↓ already go to the start or end of the text on macOS, so markers take ⌥⌘ there.
+        int markerMask = menuMask | (System.getProperty("os.name").startsWith("Mac") ? KeyEvent.ALT_DOWN_MASK : 0);
         Action nextMarker = action("Next Marker", 0, e -> jumpBar.jump(1));
-        nextMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, menuMask));
+        nextMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, markerMask));
         Action prevMarker = action("Previous Marker", 0, e -> jumpBar.jump(-1));
-        prevMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_UP, menuMask));
+        prevMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_UP, markerMask));
         Action lastMarker = action("Most Recent Marker", 0, e -> jumpBar.jump(0));
-        lastMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, menuMask | KeyEvent.SHIFT_DOWN_MASK));
+        lastMarker.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, markerMask | KeyEvent.SHIFT_DOWN_MASK));
         navigate.add(nextMarker);
         navigate.add(prevMarker);
         navigate.add(lastMarker);
