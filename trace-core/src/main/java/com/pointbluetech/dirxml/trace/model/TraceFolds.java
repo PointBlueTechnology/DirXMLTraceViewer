@@ -88,7 +88,7 @@ public final class TraceFolds {
      */
     private static boolean boundary(TraceMarker m) {
         return m != null && m != TraceMarker.POLICY && m != TraceMarker.POLICY_SET
-                && m != TraceMarker.POLICY_RESULT && m != TraceMarker.DIRXML_LOG_EVENT;
+                && m != TraceMarker.POLICY_RESULT && m != TraceMarker.LOG_EVENT;
     }
 
     private Region open(List<Region> opens, Kind kind, int parent, String label) {
