@@ -223,7 +223,7 @@ releases API, with no identifiers or usage data, and stays silent when offline.
 | ⌘R                  | Record to file                    | ⌘K                  | Clear                           |
 | ⌘S                  | Save displayed trace              | ⌘= / ⌘−             | Larger / smaller font           |
 | F5                  | Refresh status                    | ⌘Q                  | Exit                            |
-| ⌘Right / ⌘Left      | Next / previous marker            | ⇧⌘Right             | Most recent marker              |
+| ⌥⌘↓ / ⌥⌘↑ ¹         | Next / previous marker            | ⌥⇧⌘↓ ¹              | Most recent marker              |
 | ⌘T                  | Go to time                        |                     |                                 |
 | p / P               | Next / previous publisher event   | s / S               | Next / previous subscriber event|
 | n / N               | Next / previous policy            | m / M               | Next / previous policy set      |
@@ -231,6 +231,9 @@ releases API, with no identifiers or usage data, and stays silent when offline.
 | e / E               | Next / previous pumping XDS       | l / L               | Next / previous DirXML log event|
 | t / T               | Next / previous end transaction   | j / k               | Scroll one line down / up       |
 | Space               | Page down                         | b                   | Page up                         |
+
+¹ Ctrl+↓ / Ctrl+↑ and Ctrl+Shift+↓ on Windows and Linux. macOS already uses ⌘↑/↓ for the start
+and end of the text, so the markers add ⌥ there. The single keys work while the trace has focus.
 
 ## Building
 

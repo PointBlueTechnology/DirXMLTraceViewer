@@ -63,13 +63,13 @@ final class JumpBar extends JPanel {
         kind.setSelectedItem(TraceMarker.SUBSCRIBER_EVENT);
         kind.setToolTipText("The kind of place to jump to");
         JButton prev = new JButton("◀");
-        prev.setToolTipText("Previous " + "(" + shortcut("UP") + ")");
+        prev.setToolTipText("Previous " + "(" + shortcut(false, "↑", "Up") + ")");
         prev.addActionListener(e -> jump(-1));
         JButton next = new JButton("▶");
-        next.setToolTipText("Next (" + shortcut("DOWN") + ")");
+        next.setToolTipText("Next (" + shortcut(false, "↓", "Down") + ")");
         next.addActionListener(e -> jump(1));
         JButton last = new JButton("Most recent");
-        last.setToolTipText("The most recent one (" + shortcut("⇧DOWN") + ")");
+        last.setToolTipText("The most recent one (" + shortcut(true, "↓", "Down") + ")");
         last.addActionListener(e -> jump(0));
         time.setToolTipText("A time of day, e.g. 10:15 or 10:15:12.345; Enter goes to the first message at or after it");
         time.putClientProperty("JTextField.placeholderText", "hh:mm:ss");
@@ -85,8 +85,11 @@ final class JumpBar extends JPanel {
         add(time);
     }
 
-    private static String shortcut(String key) {
-        return (System.getProperty("os.name").startsWith("Mac") ? "⌘" : "Ctrl+") + key;
+    /** The marker keys as MainFrame binds them: ⌥⌘ on macOS, Ctrl elsewhere. */
+    private static String shortcut(boolean shift, String arrow, String key) {
+        return System.getProperty("os.name").startsWith("Mac")
+                ? "⌥" + (shift ? "⇧" : "") + "⌘" + arrow
+                : "Ctrl+" + (shift ? "Shift+" : "") + key;
     }
 
     /** 1 next, -1 previous, 0 most recent, of the chosen kind. */
