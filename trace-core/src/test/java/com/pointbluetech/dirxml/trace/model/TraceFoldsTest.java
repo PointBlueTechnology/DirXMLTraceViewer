@@ -82,6 +82,16 @@ class TraceFoldsTest {
     }
 
     @Test
+    void aPolicysQueryStaysInsideIt() {
+        TraceFolds.Region set = only(add(h("AD ST", "Applying event transformation policies.")));
+        TraceFolds.Region pol = only(add(h("AD ST", "Applying policy: sub-etp-Lookup.")));
+        assertEquals(pol.id(), add(h("AD ST", "Query from policy")).within());
+        assertEquals(pol.id(), add(h("AD ST", "Query from policy result")).within(), "the result is part of the policy");
+        assertEquals(pol.id(), add(h("AD ST", "  Evaluating selection criteria for rule X.")).within());
+        assertEquals(set.id(), pol.parent());
+    }
+
+    @Test
     void aSetWithNothingInItEndsAtTheNextMessage() {
         only(add(h("AD PT", "Applying input transformation policies.")));
         assertEquals(-1, add(h("AD PT", "Pumping XDS to eDirectory.")).within());

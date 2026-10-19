@@ -14,6 +14,8 @@ import javax.swing.JTextField;
 import javax.swing.Timer;
 import java.awt.Component;
 import java.awt.FlowLayout;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * Jump markers (issue #2): pick a kind of place in the trace — a driver start, an event on either
@@ -22,6 +24,18 @@ import java.awt.FlowLayout;
  * view stays where it landed while trace keeps arriving.
  */
 final class JumpBar extends JPanel {
+
+    /** The single key that jumps to the next of a kind in the trace (with Shift, the previous). */
+    static final Map<TraceMarker, Character> KEYS = new EnumMap<>(Map.of(
+            TraceMarker.PUBLISHER_EVENT, 'P',
+            TraceMarker.SUBSCRIBER_EVENT, 'S',
+            TraceMarker.SUBSCRIBER_EXECUTE, 'X',
+            TraceMarker.POLICY_SET, 'M',
+            TraceMarker.POLICY, 'N',
+            TraceMarker.POLICY_RESULT, 'R',
+            TraceMarker.END_TRANSACTION, 'T',
+            TraceMarker.DIRXML_LOG_EVENT, 'L',
+            TraceMarker.PUMPING_XDS, 'E'));
 
     private final TraceView view;
     private final Runnable stopAutoScroll;
@@ -39,7 +53,11 @@ final class JumpBar extends JPanel {
         kind.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean selected, boolean focus) {
-                return super.getListCellRendererComponent(list, value instanceof TraceMarker m ? m.label() : value, index, selected, focus);
+                if (value instanceof TraceMarker m) {
+                    Character key = KEYS.get(m);
+                    value = key == null ? m.label() : m.label() + "  (" + Character.toLowerCase(key) + ")";
+                }
+                return super.getListCellRendererComponent(list, value, index, selected, focus);
             }
         });
         kind.setSelectedItem(TraceMarker.SUBSCRIBER_EVENT);
@@ -73,7 +91,11 @@ final class JumpBar extends JPanel {
 
     /** 1 next, -1 previous, 0 most recent, of the chosen kind. */
     void jump(int direction) {
-        TraceMarker k = (TraceMarker) kind.getSelectedItem();
+        jump((TraceMarker) kind.getSelectedItem(), direction);
+    }
+
+    /** 1 next, -1 previous, 0 most recent, of {@code k}. */
+    void jump(TraceMarker k, int direction) {
         stopAutoScroll.run();
         if (!view.jump(k, direction)) {
             say("No " + (direction > 0 ? "later " : direction < 0 ? "earlier " : "") + k.label().toLowerCase() + " in view");
