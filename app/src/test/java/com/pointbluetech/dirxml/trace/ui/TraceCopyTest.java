@@ -7,6 +7,8 @@ import javax.swing.JPopupMenu;
 import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+import javax.swing.text.Caret;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.text.BadLocationException;
@@ -14,8 +16,16 @@ import javax.swing.text.DefaultEditorKit;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.awt.Graphics;
+import java.awt.Color;
+import java.awt.Rectangle;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -133,6 +143,86 @@ class TraceCopyTest {
             assertTrue(selected.startsWith("efghijklmnop"), selected);
             assertTrue(selected.length() > "efghijklmnop".length(), selected);
         });
+    }
+
+    @Test
+    void paintedCaretRegistersItsFullRepaintArea() throws Exception {
+        onEdt(() -> {
+            JTextPane pane = paneWithText();
+            pane.setEditable(false);
+            TraceCopy.install(pane);
+            pane.setCaretPosition(10);
+            pane.getCaret().setVisible(true);
+            try {
+                ((Rectangle) pane.getCaret()).setBounds(0, 0, 0, 0);
+                BufferedImage image = new BufferedImage(600, 80, BufferedImage.TYPE_INT_RGB);
+                Graphics graphics = image.getGraphics();
+                try {
+                    pane.getCaret().paint(graphics);
+                } finally {
+                    graphics.dispose();
+                }
+                Rectangle2D position = pane.modelToView2D(10);
+                assertNotNull(position);
+                Rectangle painted = position.getBounds();
+                painted.width = 3;
+                assertTrue(((Rectangle) pane.getCaret()).contains(painted),
+                        "Blink repaint bounds must cover the entire painted caret");
+                assertEquals(500, pane.getCaret().getBlinkRate());
+            } catch (BadLocationException e) {
+                throw new AssertionError(e);
+            } finally {
+                pane.getCaret().setVisible(false);
+            }
+        });
+    }
+
+    @Test
+    void focusedReadOnlyCaretBlinksOffAndOn() throws Exception {
+        CompletableFuture<Void> blinked = new CompletableFuture<>();
+        Caret[] caret = new Caret[1];
+        Timer[] observer = new Timer[1];
+        onEdt(() -> {
+            JTextPane pane = paneWithText();
+            pane.setEditable(false);
+            pane.setCaretColor(Color.WHITE);
+            TraceCopy.install(pane);
+            caret[0] = pane.getCaret();
+            ((FocusListener) caret[0]).focusGained(new FocusEvent(pane, FocusEvent.FOCUS_GAINED));
+            boolean[] sawOff = {false};
+            observer[0] = new Timer(25, event -> {
+                boolean visible = caret[0].isVisible();
+                BufferedImage image = new BufferedImage(600, 80, BufferedImage.TYPE_INT_RGB);
+                Graphics graphics = image.getGraphics();
+                try {
+                    caret[0].paint(graphics);
+                } finally {
+                    graphics.dispose();
+                }
+                try {
+                    Rectangle2D position = pane.modelToView2D(caret[0].getDot());
+                    assertNotNull(position);
+                    int pixel = image.getRGB((int) position.getX(), (int) position.getY() + 1);
+                    assertEquals(visible ? Color.WHITE.getRGB() : Color.BLACK.getRGB(), pixel);
+                    if (!visible) {
+                        sawOff[0] = true;
+                    } else if (sawOff[0]) {
+                        blinked.complete(null);
+                    }
+                } catch (BadLocationException | AssertionError failure) {
+                    blinked.completeExceptionally(failure);
+                }
+            });
+            observer[0].start();
+        });
+        try {
+            blinked.get(3, TimeUnit.SECONDS);
+        } finally {
+            onEdt(() -> {
+                observer[0].stop();
+                caret[0].setVisible(false);
+            });
+        }
     }
 
     /** Swing text layout is not safe off the event thread; headless tests still run there. */

@@ -4,14 +4,20 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
+import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.JTextComponent;
+import java.awt.Graphics;
 import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
+import java.awt.geom.Rectangle2D;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.InputEvent;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 
@@ -56,7 +62,9 @@ final class TraceCopy {
 
     /** Popup menu plus the caret that keeps a selection when the popup click is inside it. */
     static void install(JTextComponent component) {
-        component.setCaret(new PopupSelectionCaret());
+        PopupSelectionCaret caret = new PopupSelectionCaret();
+        component.setCaret(caret);
+        caret.setBlinkRate(500);
         component.setComponentPopupMenu(new CopyMenu(component));
     }
 
@@ -116,6 +124,81 @@ final class TraceCopy {
     private static final class PopupSelectionCaret extends DefaultCaret {
         /** The press landed inside the selection; ignore the rest of this click. */
         private boolean keep;
+        private boolean blinkOn = true;
+        private int blinkRate;
+        private final Timer blinkTimer = new Timer(500, event -> {
+            blinkOn = !blinkOn;
+            repaint();
+        });
+
+        @Override
+        public void setBlinkRate(int rate) {
+            if (rate < 0) {
+                throw new IllegalArgumentException("Blink rate must not be negative");
+            }
+            super.setBlinkRate(0);
+            blinkRate = rate;
+            blinkTimer.setDelay(rate);
+            blinkTimer.setInitialDelay(rate);
+            setVisible(isActive());
+        }
+
+        @Override
+        public int getBlinkRate() {
+            return blinkRate;
+        }
+
+        @Override
+        public void setVisible(boolean visible) {
+            super.setVisible(visible);
+            blinkOn = true;
+            if (visible && blinkRate > 0) {
+                blinkTimer.restart();
+            } else {
+                blinkTimer.stop();
+            }
+        }
+
+        @Override
+        public boolean isVisible() {
+            return super.isVisible() && blinkOn;
+        }
+
+        @Override
+        public void focusGained(FocusEvent event) {
+            int rate = getBlinkRate();
+            super.focusGained(event);
+            setBlinkRate(rate);
+        }
+
+        @Override
+        public void deinstall(JTextComponent component) {
+            blinkTimer.stop();
+            super.deinstall(component);
+        }
+
+        @Override
+        public void paint(Graphics graphics) {
+            if (!isVisible() || getComponent() == null) {
+                return;
+            }
+            JTextComponent component = getComponent();
+            try {
+                Rectangle2D position = component.modelToView2D(getDot());
+                if (position == null) {
+                    return;
+                }
+                Rectangle painted = position.getBounds();
+                painted.width = 2;
+                if (!contains(painted)) {
+                    repaint();
+                    damage(painted);
+                }
+                graphics.setColor(component.getCaretColor());
+                graphics.fillRect(painted.x, painted.y, painted.width, painted.height);
+            } catch (BadLocationException ignored) {
+            }
+        }
 
         @Override
         public void mousePressed(MouseEvent e) {
