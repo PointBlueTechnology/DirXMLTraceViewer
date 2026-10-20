@@ -9,7 +9,11 @@ import javax.swing.UIManager;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.text.DefaultCaret;
+import javax.swing.text.BadLocationException;
 import javax.swing.text.JTextComponent;
+import java.awt.Graphics;
+import java.awt.Rectangle;
+import java.awt.geom.Rectangle2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
@@ -187,6 +191,35 @@ final class TraceCopy {
         @Override
         public boolean isVisible() {
             return super.isVisible() && blinkOn;
+        }
+
+        /**
+         * Painted in the caret colour itself. Recent JDK updates (Temurin 21.0.12, for one) have DefaultCaret blend
+         * a read-only component's caret with the background and make it translucent, which in a trace pane is the
+         * faint caret this class exists to fix. Same place and width as DefaultCaret, so its repaint area covers it.
+         */
+        @Override
+        public void paint(Graphics graphics) {
+            JTextComponent component = getComponent();
+            if (!isVisible() || component == null) {
+                return;
+            }
+            try {
+                Rectangle2D position = component.modelToView2D(getDot());
+                if (position == null) {
+                    return;
+                }
+                Rectangle at = position.getBounds();
+                if (width > 0 && height > 0 && !contains(at.x, at.y)) {
+                    // out of step with where the caret was last damaged: repaint both
+                    repaint();
+                    damage(at);
+                }
+                graphics.setColor(component.getCaretColor());
+                graphics.fillRect(at.x - (CARET_WIDTH >> 1), at.y, CARET_WIDTH, at.height);
+            } catch (BadLocationException ignored) {
+                // nowhere to paint
+            }
         }
 
         @Override
