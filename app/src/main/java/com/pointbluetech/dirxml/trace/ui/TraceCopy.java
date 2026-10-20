@@ -5,15 +5,12 @@ import javax.swing.JPopupMenu;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.UIManager;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
-import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.JTextComponent;
-import java.awt.Graphics;
 import java.awt.GraphicsEnvironment;
-import java.awt.Rectangle;
-import java.awt.geom.Rectangle2D;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.InputEvent;
@@ -60,12 +57,29 @@ final class TraceCopy {
         return start < end && offset >= start && offset < end;
     }
 
-    /** Popup menu plus the caret that keeps a selection when the popup click is inside it. */
+    /** Blink rate when the look and feel names none. */
+    static final int DEFAULT_BLINK_RATE = 500;
+
+    /** Caret width in pixels: Swing's default of one is easy to miss in a trace. */
+    static final int CARET_WIDTH = 2;
+
+    /**
+     * Popup menu plus the caret that keeps a selection when the popup click is inside it, wider
+     * than Swing's default and blinking at the look and feel's rate even though the pane is
+     * read-only.
+     */
     static void install(JTextComponent component) {
         PopupSelectionCaret caret = new PopupSelectionCaret();
+        // DefaultCaret reads the width from this client property; set before the caret installs
+        component.putClientProperty("caretWidth", CARET_WIDTH);
         component.setCaret(caret);
-        caret.setBlinkRate(500);
+        caret.setBlinkRate(blinkRate(UIManager.get("TextPane.caretBlinkRate")));
         component.setComponentPopupMenu(new CopyMenu(component));
+    }
+
+    /** The look and feel's blink rate (0 turns blinking off), or {@link #DEFAULT_BLINK_RATE} when it gives none. */
+    static int blinkRate(Object lookAndFeelRate) {
+        return lookAndFeelRate instanceof Integer rate && rate >= 0 ? rate : DEFAULT_BLINK_RATE;
     }
 
     private static void copyToClipboard(String text) {
@@ -126,10 +140,21 @@ final class TraceCopy {
         private boolean keep;
         private boolean blinkOn = true;
         private int blinkRate;
-        private final Timer blinkTimer = new Timer(500, event -> {
+        private final Timer blinkTimer = new Timer(DEFAULT_BLINK_RATE, event -> {
             blinkOn = !blinkOn;
             repaint();
         });
+
+        PopupSelectionCaret() {
+            // a caret that moves is shown at once and the blink starts over, as DefaultCaret's own does
+            addChangeListener(event -> {
+                if (blinkTimer.isRunning()) {
+                    blinkOn = true;
+                    blinkTimer.restart();
+                    repaint();
+                }
+            });
+        }
 
         @Override
         public void setBlinkRate(int rate) {
@@ -175,29 +200,6 @@ final class TraceCopy {
         public void deinstall(JTextComponent component) {
             blinkTimer.stop();
             super.deinstall(component);
-        }
-
-        @Override
-        public void paint(Graphics graphics) {
-            if (!isVisible() || getComponent() == null) {
-                return;
-            }
-            JTextComponent component = getComponent();
-            try {
-                Rectangle2D position = component.modelToView2D(getDot());
-                if (position == null) {
-                    return;
-                }
-                Rectangle painted = position.getBounds();
-                painted.width = 2;
-                if (!contains(painted)) {
-                    repaint();
-                    damage(painted);
-                }
-                graphics.setColor(component.getCaretColor());
-                graphics.fillRect(painted.x, painted.y, painted.width, painted.height);
-            } catch (BadLocationException ignored) {
-            }
         }
 
         @Override
