@@ -48,7 +48,7 @@ public final class LdapTraceEventSource implements TraceEventSource {
             public void ldapEventNotification(LDAPEvent evt) {
                 if (evt.getContainedEventInformation() instanceof EdirEventIntermediateResponse r
                         && r.getResponsedata() instanceof DebugEventData d) {
-                    onEvent.accept(new RawTraceEvent(serverName, r.getEventtype(), System.currentTimeMillis(),
+                    onEvent.accept(new RawTraceEvent(serverName, r.getEventtype(), (d.getDsTime() *1000L + d.getMilliSeconds()),
                             d.getPerpetratorDN(), d.getFormatString(), parameters(d)));
                 }
             }
