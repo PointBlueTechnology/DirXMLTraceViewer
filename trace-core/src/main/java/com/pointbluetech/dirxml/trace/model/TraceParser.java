@@ -18,7 +18,7 @@ public final class TraceParser {
      * The tag is {@code ST}/{@code PT} for the subscriber/publisher and blank for driver-level
      * messages; other short tags (e.g. a service channel) are accepted and treated as "other".
      */
-    private static final Pattern HEADER = Pattern.compile("^\\s*\\[([^\\]\\r\\n]{6,40})\\]:([^:\\r\\n]*?)(?: ([A-Z]{2,3}))?:");
+    private static final Pattern HEADER = Pattern.compile("^\\s*\\[([^\\]\\r\\n]{5,40})\\]:([^:\\r\\n]*?)(?: ([A-Z]{2,3}))?:");
     /**
      * The same header as delivered by LDAP events, without the timestamp (the DSTrace console adds
      * it). The space before the tag is always present, so {@code "AD :"} has a blank tag.

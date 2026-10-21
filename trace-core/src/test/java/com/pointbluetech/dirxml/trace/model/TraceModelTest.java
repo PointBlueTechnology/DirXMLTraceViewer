@@ -215,6 +215,14 @@ class TraceModelTest {
     }
 
     @Test
+    void formatsDeltaInSecondsWithMillisecondPrecision() {
+        assertEquals("0.000", TimestampFormat.DELTA.formatDelta(0));
+        assertEquals("1.023", TimestampFormat.DELTA.formatDelta(1023));
+        assertEquals("-0.001", TimestampFormat.DELTA.formatDelta(-1));
+        assertEquals("0.001", TimestampFormat.DELTA.formatDelta(1));
+    }
+
+    @Test
     void xmlAndIndentedTextAreNotHeaders() {
         TraceParser p = new TraceParser();
         p.parse(event("[09/25/26 10:15:12.345]:HR JDBC PT:Sending:"));

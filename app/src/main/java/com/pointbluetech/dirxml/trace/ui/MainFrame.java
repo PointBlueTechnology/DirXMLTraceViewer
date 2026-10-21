@@ -16,6 +16,7 @@ import com.pointbluetech.dirxml.trace.model.TraceFileReader;
 import com.pointbluetech.dirxml.trace.model.TraceFileWriter;
 import com.pointbluetech.dirxml.trace.model.TraceFilter;
 import com.pointbluetech.dirxml.trace.model.TraceParser;
+import com.pointbluetech.dirxml.trace.model.TraceTime;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -131,8 +132,9 @@ public final class MainFrame extends JFrame {
     /** The trace file being viewed instead of a live stream, or null. */
     private java.nio.file.Path openFile;
     private TraceFileWriter recorder;
+    private long deltaBaseAt = -1;
 
-    private final TraceView view = new TraceView(prefs.getInt("maxDisplayed", DEFAULT_DISPLAYED));
+    private final TraceView view = new TraceView(prefs.getInt("maxDisplayed", DEFAULT_DISPLAYED), this::setDeltaBase);
     private final DefaultMutableTreeNode treeRoot = new DefaultMutableTreeNode("Not connected");
     private final DefaultTreeModel treeModel = new DefaultTreeModel(treeRoot);
     private final JTree tree = new JTree(treeModel);
@@ -390,19 +392,20 @@ public final class MainFrame extends JFrame {
     }
 
     /**
-     * Format of the timestamps added to live messages. Messages already received are re-rendered;
-     * timestamps that came with the text, as in trace files, keep their original format.
+     * Format of live timestamps. Messages already received are re-rendered; DELTA also applies to
+     * timestamps in opened trace files.
      */
     private JMenu buildTimestampMenu() {
         JMenu menu = new JMenu("Timestamp Format");
-        menu.setToolTipText("For live trace. Timestamps in opened trace files are shown as written.");
+        menu.setToolTipText("For live trace. Other formats leave trace-file timestamps as written; DELTA also works on files.");
         TimestampFormat current = TimestampFormat.fromName(prefs.get("timestampFormat", TimestampFormat.DEFAULT.name()));
         view.setTimestampFormat(current);
         parser.setTimestampFormat(current);
         ButtonGroup group = new ButtonGroup();
         long now = System.currentTimeMillis();
         for (TimestampFormat f : TimestampFormat.values()) {
-            JRadioButtonMenuItem item = new JRadioButtonMenuItem(f.label() + "  —  " + f.format(now), f == current);
+            String sample = f == TimestampFormat.DELTA ? f.formatDelta(0) : f.format(now);
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(f.label() + "  —  " + sample, f == current);
             item.addActionListener(e -> {
                 view.setTimestampFormat(f);
                 parser.setTimestampFormat(f);
@@ -741,6 +744,11 @@ public final class MainFrame extends JFrame {
             n++;
             received++;
             store.addLast(e);
+            long current = TraceTime.timestamp(e.record);
+            if (deltaBaseAt < 0 && current >= 0) {
+                deltaBaseAt = current;
+                view.setDeltaBaseAt(current);
+            }
             if (filter.matches(e.record)) {
                 shown.add(e);
             }
@@ -751,8 +759,12 @@ public final class MainFrame extends JFrame {
         limitStore();
         if (recorder != null && !shown.isEmpty()) {
             try {
+                TimestampFormat format = view.timestampFormat();
                 for (TraceEntry s : shown) {
-                    recorder.write(s.record.withTimestampFormat(view.timestampFormat()), view.tagServer());
+                    long current = TraceTime.timestamp(s.record);
+                    long delta = format == TimestampFormat.DELTA && current >= 0 && deltaBaseAt >= 0
+                            ? TraceTime.deltaMillis(current, deltaBaseAt) : 0;
+                    recorder.write(s.record.withTimestampFormat(format, delta), view.tagServer());
                 }
                 recorder.flush();
             } catch (IOException ex) {
@@ -794,6 +806,16 @@ public final class MainFrame extends JFrame {
     private void setFilter(TraceFilter f) {
         filter = f;
         liveFilter = f;
+    }
+
+    private void setDeltaBase(TraceEntry entry) {
+        long base = TraceTime.timestamp(entry.record);
+        if (base < 0) {
+            return;
+        }
+        deltaBaseAt = base;
+        view.setDeltaBaseAt(base);
+        rebuildView();
     }
 
     private void filterChanged() {
@@ -850,6 +872,7 @@ public final class MainFrame extends JFrame {
     private void clearTrace() {
         store.clear();
         processed.clear();
+        deltaBaseAt = -1;
         processor.execute(parser::reset);
         rebuildGeneration++;
         rebuilding = false;
@@ -917,6 +940,8 @@ public final class MainFrame extends JFrame {
                     showError("Could not read " + f, error);
                 }
                 store.addAll(entries);
+                deltaBaseAt = entries.isEmpty() ? -1 : TraceTime.timestamp(entries.get(0).record);
+                view.setDeltaBaseAt(deltaBaseAt);
                 received = entries.size();
                 if (pauseButton.isSelected()) {
                     pauseButton.doClick(); // resuming also rebuilds the view

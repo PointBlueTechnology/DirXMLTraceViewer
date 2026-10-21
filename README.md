@@ -26,7 +26,9 @@ syntax coloring. It can also open trace files.
   subscriber Service channel `SST`, Engine/Other), and by text ("Contains").
 - **Find** in the displayed trace, with every match highlighted.
 - **Compact Whitespace.** Hides the blank lines that pad XSLT policy trace.
-- **Timestamp formats.** U.S., European, ISO 8601 or time only for live trace.
+- **Timestamp formats.** U.S., European, ISO 8601, time only, or DELTA (elapsed seconds with
+  millisecond precision since the first record received or read). DELTA also works on opened trace
+  files; right-click a record to use its timestamp as the DELTA base.
 - **Record to file** as the trace is displayed, or save what is on screen.
 - **Open trace files** from the server (drag and drop works too). The same coloring and filters
   apply; large files are fine (tested with 650 MB).
