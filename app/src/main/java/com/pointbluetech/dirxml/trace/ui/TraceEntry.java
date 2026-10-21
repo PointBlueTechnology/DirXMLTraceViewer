@@ -23,7 +23,7 @@ final class TraceEntry {
      * ordinal; otherwise it is {@code TOKEN_COUNT + DSTrace console color}.
      */
     record Rendered(String text, int[] starts, int[] ends, int[] styles, boolean compact, boolean tagServer,
-                    TimestampFormat timestampFormat) {
+                    TimestampFormat timestampFormat, long deltaMillis) {
     }
 
     final long seq;
@@ -60,18 +60,23 @@ final class TraceEntry {
     }
 
     Rendered render(boolean compact, boolean tagServer, TimestampFormat timestampFormat) {
+        return render(compact, tagServer, timestampFormat, 0);
+    }
+
+    Rendered render(boolean compact, boolean tagServer, TimestampFormat timestampFormat, long deltaMillis) {
         Rendered r = rendered;
         if (r != null && r.compact() == compact && r.tagServer() == tagServer
-                && r.timestampFormat() == timestampFormat) {
+                && r.timestampFormat() == timestampFormat
+                && (timestampFormat != TimestampFormat.DELTA || r.deltaMillis() == deltaMillis)) {
             return r;
         }
-        r = build(compact, tagServer, timestampFormat);
+        r = build(compact, tagServer, timestampFormat, deltaMillis);
         rendered = r;
         return r;
     }
 
-    private Rendered build(boolean compact, boolean tagServer, TimestampFormat timestampFormat) {
-        TraceRecord rec = record.withTimestampFormat(timestampFormat);
+    private Rendered build(boolean compact, boolean tagServer, TimestampFormat timestampFormat, long deltaMillis) {
+        TraceRecord rec = record.withTimestampFormat(timestampFormat, deltaMillis);
         rec = compact ? TraceCompactor.compact(rec) : rec;
         String tag = tagServer && rec.header() != null && !rec.server().isEmpty() ? "[" + rec.server() + "] " : "";
         List<TraceHighlighter.Run> runs = TraceHighlighter.highlight(rec);
@@ -91,6 +96,6 @@ final class TraceEntry {
             ends[i + extra] = run.end() + shift;
             styles[i + extra] = run.token() == TraceHighlighter.Token.DS_COLOR ? TOKEN_COUNT + run.dsColor() : run.token().ordinal();
         }
-        return new Rendered(tag + rec.text(), starts, ends, styles, compact, tagServer, timestampFormat);
+        return new Rendered(tag + rec.text(), starts, ends, styles, compact, tagServer, timestampFormat, deltaMillis);
     }
 }

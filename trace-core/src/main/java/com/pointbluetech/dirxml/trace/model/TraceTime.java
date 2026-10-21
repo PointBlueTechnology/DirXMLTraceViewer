@@ -1,5 +1,9 @@
 package com.pointbluetech.dirxml.trace.model;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,7 +15,14 @@ import java.util.regex.Pattern;
  */
 public final class TraceTime {
 
+    private static final long DAY_MILLIS = 24 * 60 * 60 * 1000L;
     private static final Pattern TIME = Pattern.compile("(\\d{1,2}):(\\d{2})(?::(\\d{2})(?:[.,](\\d{1,3}))?)?");
+    private static final DateTimeFormatter[] DATE_TIMES = {
+            DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss.SSS"),
+            DateTimeFormatter.ofPattern("dd.MM.yy HH:mm:ss.SSS"),
+            DateTimeFormatter.ofPattern("dd/MM/yy HH:mm:ss.SSS"),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS")
+    };
 
     private TraceTime() {
     }
@@ -24,6 +35,35 @@ public final class TraceTime {
         }
         String text = record.text();
         return parse(text.substring(Math.max(0, h.timestampStart()), Math.min(text.length(), h.timestampEnd())));
+    }
+
+    /** Timestamp used for display intervals: event receive time, or a trace header's date and time. */
+    public static long timestamp(TraceRecord record) {
+        if (record.receivedAt() != 0) {
+            return record.receivedAt();
+        }
+        TraceRecord.Header header = record.header();
+        if (header == null) {
+            return -1;
+        }
+        String stamp = record.text().substring(header.timestampStart() + 1, header.timestampEnd() - 1);
+        for (DateTimeFormatter formatter : DATE_TIMES) {
+            try {
+                return LocalDateTime.parse(stamp, formatter).toInstant(ZoneOffset.UTC).toEpochMilli();
+            } catch (DateTimeParseException ignored) {
+                // Try the other supported timestamp formats, then fall back to time of day.
+            }
+        }
+        return timeOfDay(record);
+    }
+
+    /** Difference between two display timestamps, accounting for midnight in time-of-day values. */
+    public static long deltaMillis(long current, long previous) {
+        long delta = current - previous;
+        if (current >= 0 && current < DAY_MILLIS && previous >= 0 && previous < DAY_MILLIS && delta < 0) {
+            delta += DAY_MILLIS;
+        }
+        return delta;
     }
 
     /**
