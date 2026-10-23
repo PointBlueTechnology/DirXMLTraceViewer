@@ -10,6 +10,8 @@ import java.util.List;
  * driver and channel of the last header seen.
  *
  * @param server      name of the server that emitted it ("" for a single source)
+ * @param receivedAt  when it happened, in epoch milliseconds (see {@link RawTraceEvent}); 0 for text read from
+ *                    a file, whose header carries its own time
  * @param text        the message text, always ending with a newline
  * @param colorSpans  DSTrace console color regions within {@code text}
  * @param driverName  driver (trace) name from the header, or null for non-driver messages

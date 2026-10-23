@@ -7,7 +7,8 @@ import java.util.List;
  *
  * @param server        name of the server the event came from ("" when there is only one source)
  * @param eventType     eDirectory event type (e.g. EVT_DB_DIRXML = 214, EVT_DB_DIRXML_DRIVERS = 217)
- * @param receivedAt    local wall-clock time the event was received
+ * @param receivedAt    when the event happened, in epoch milliseconds: the time the server reports for a live
+ *                      event (its own clock), else the local time it was received
  * @param perpetratorDN DN reported by the server as the source of the event (may be empty)
  * @param formatString  DSTrace printf-style format string
  * @param parameters    typed parameter values (String, Integer, byte[], or other objects)

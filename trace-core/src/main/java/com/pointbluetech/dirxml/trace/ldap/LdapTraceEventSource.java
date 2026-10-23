@@ -48,7 +48,8 @@ public final class LdapTraceEventSource implements TraceEventSource {
             public void ldapEventNotification(LDAPEvent evt) {
                 if (evt.getContainedEventInformation() instanceof EdirEventIntermediateResponse r
                         && r.getResponsedata() instanceof DebugEventData d) {
-                    onEvent.accept(new RawTraceEvent(serverName, r.getEventtype(), (d.getDsTime() *1000L + d.getMilliSeconds()),
+                    onEvent.accept(new RawTraceEvent(serverName, r.getEventtype(),
+                            eventTime(d.getDsTime(), d.getMilliSeconds(), System.currentTimeMillis()),
                             d.getPerpetratorDN(), d.getFormatString(), parameters(d)));
                 }
             }
@@ -67,6 +68,18 @@ public final class LdapTraceEventSource implements TraceEventSource {
             close();
             throw e;
         }
+    }
+
+    /**
+     * When the server says the event happened: its {@code dsTime} (seconds since 1970, UTC, unsigned) and the
+     * milliseconds within that second, on the server's clock. {@code now} (the local clock) when the server
+     * sent no time.
+     */
+    static long eventTime(int dsTime, int milliSeconds, long now) {
+        if (dsTime == 0) {
+            return now;
+        }
+        return Integer.toUnsignedLong(dsTime) * 1000L + Math.floorMod(milliSeconds, 1000);
     }
 
     private static List<Object> parameters(DebugEventData d) {
