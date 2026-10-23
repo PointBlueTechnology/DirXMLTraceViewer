@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Connection to one eDirectory server: driver discovery, that server's view of driver state and
@@ -120,8 +119,7 @@ public final class LdapSession implements AutoCloseable {
      * else the IPv4 address in its {@code networkAddress}, else its CN as a host name.
      */
     private ServerInfo resolveServer(String dn, String connectedDn) {
-        String rdn = dn.split(",", 2)[0];
-        String name = rdn.substring(rdn.indexOf('=') + 1);
+        String name = Dns.firstValue(dn);
         if (connectedDn != null && sameDn(dn, connectedDn)) {
             return new ServerInfo(dn, name, settings.host());
         }
@@ -241,8 +239,7 @@ public final class LdapSession implements AutoCloseable {
                                          List<DirXmlObject> drivers) {
         String name = strAttr(e, "cn");
         if (name == null) {
-            String rdn = e.getDN().split(",", 2)[0];
-            name = rdn.substring(rdn.indexOf('=') + 1);
+            name = Dns.firstValue(e.getDN());
         }
         String traceName = null;
         for (String a : ATTR_TRACE_NAME) {
@@ -266,12 +263,9 @@ public final class LdapSession implements AutoCloseable {
         }
     }
 
+    /** The same entry, however each DN is written (case, spacing, escapes; #24). */
     static boolean sameDn(String a, String b) {
-        return normalizeDn(a).equals(normalizeDn(b));
-    }
-
-    private static String normalizeDn(String dn) {
-        return dn.toLowerCase(Locale.ROOT).replaceAll("\\s*([,=])\\s*", "$1").trim();
+        return Dns.same(a, b);
     }
 
     private static String hex(byte[] v) {
