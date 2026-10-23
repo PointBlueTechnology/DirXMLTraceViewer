@@ -23,7 +23,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 
 /**
- * Copy for the trace text panes. Right-click (control-click on macOS) opens a one-item menu;
+ * Copy for the trace text panes. Right-click (control-click on macOS) opens the copy menu;
  * Copy is enabled only when text is selected. Ctrl/Cmd+C is left on the text component's own
  * keymap, so the shortcut keeps working when the menu is closed.
  * <p>

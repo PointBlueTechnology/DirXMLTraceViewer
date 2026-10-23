@@ -104,6 +104,7 @@ class TraceCopyTest {
             JPopupMenu menu = view.textPane().getComponentPopupMenu();
             assertNotNull(menu);
             assertEquals("Copy", ((JMenuItem) menu.getComponent(0)).getText());
+            assertEquals("Set timestamp as DELTA base", ((JMenuItem) menu.getComponent(2)).getText());
         });
     }
 

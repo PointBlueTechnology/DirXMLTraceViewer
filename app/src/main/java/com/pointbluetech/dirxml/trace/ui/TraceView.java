@@ -3,8 +3,11 @@ package com.pointbluetech.dirxml.trace.ui;
 import com.pointbluetech.dirxml.trace.model.TimestampFormat;
 import com.pointbluetech.dirxml.trace.model.TraceHighlighter.Token;
 import com.pointbluetech.dirxml.trace.model.TraceMarker;
+import com.pointbluetech.dirxml.trace.model.TraceTime;
 
 import javax.swing.JScrollBar;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
@@ -18,10 +21,12 @@ import javax.swing.text.StyleConstants;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Rectangle;
+import java.awt.event.MouseEvent;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.function.Consumer;
 
 /**
  * The colored trace pane. Keeps about {@code maxRecords} records in the document.
@@ -38,6 +43,8 @@ final class TraceView extends JScrollPane {
     }
 
     private final WrappingTextPane pane = new WrappingTextPane();
+    private final Consumer<TraceEntry> deltaBaseSelected;
+    private TraceEntry contextEntry;
     /** Style per {@link TraceEntry.Rendered} style code. Immutable once built, so safe to share across threads. */
     private final AttributeSet[] styles = new AttributeSet[TraceEntry.TOKEN_COUNT + 16];
     /** Length of each displayed record, oldest first, for trimming. */
@@ -55,9 +62,15 @@ final class TraceView extends JScrollPane {
     private volatile boolean tagServer;
     private volatile boolean compact;
     private volatile TimestampFormat timestampFormat = TimestampFormat.DEFAULT;
+    private volatile long deltaBaseAt = -1;
 
     TraceView(int maxRecords) {
+        this(maxRecords, entry -> { });
+    }
+
+    TraceView(int maxRecords, Consumer<TraceEntry> deltaBaseSelected) {
         this.maxRecords = maxRecords;
+        this.deltaBaseSelected = deltaBaseSelected;
         pane.setEditable(false);
         pane.setBackground(TracePalette.BACKGROUND);
         pane.setForeground(TracePalette.FOREGROUND);
@@ -66,6 +79,7 @@ final class TraceView extends JScrollPane {
         // Right-click copies the selection. Installed before the caret policy so that policy
         // applies to the caret TraceCopy installs.
         TraceCopy.install(pane);
+        installDeltaBaseMenu();
         ((DefaultCaret) pane.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
         pane.setStyledDocument(doc);
         setViewportView(pane);
@@ -85,6 +99,54 @@ final class TraceView extends JScrollPane {
             StyleConstants.setForeground(a, TracePalette.DS_COLORS[i]);
             styles[TraceEntry.TOKEN_COUNT + i] = a;
         }
+    }
+
+    private void installDeltaBaseMenu() {
+        JPopupMenu menu = pane.getComponentPopupMenu();
+        JMenuItem setBase = new JMenuItem("Set timestamp as DELTA base");
+        menu.addSeparator();
+        menu.add(setBase);
+        setBase.addActionListener(e -> {
+            if (contextEntry != null) {
+                deltaBaseSelected.accept(contextEntry);
+            }
+        });
+        menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                setBase.setEnabled(contextEntry != null && TraceTime.timestamp(contextEntry.record) >= 0);
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
+            }
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
+            }
+        });
+    }
+
+    private void rememberContextEntry(MouseEvent e) {
+        if (e.isPopupTrigger() || SwingUtilities.isRightMouseButton(e)) {
+            contextEntry = entryAt(pane.viewToModel2D(e.getPoint()));
+        }
+    }
+
+    private TraceEntry entryAt(int offset) {
+        if (offset < 0) {
+            return null;
+        }
+        int start = 0;
+        Iterator<Integer> lens = lengths.iterator();
+        for (TraceEntry entry : entries) {
+            int length = lens.next();
+            if (offset >= start && offset < start + length) {
+                return entry;
+            }
+            start += length;
+        }
+        return null;
     }
 
     JTextPane textPane() {
@@ -128,13 +190,17 @@ final class TraceView extends JScrollPane {
         return compact;
     }
 
-    /** Format for timestamps the viewer added; applies to records rendered afterwards. */
+    /** Timestamp format; DELTA also applies to timestamps in opened trace files. */
     void setTimestampFormat(TimestampFormat timestampFormat) {
         this.timestampFormat = timestampFormat;
     }
 
     TimestampFormat timestampFormat() {
         return timestampFormat;
+    }
+
+    void setDeltaBaseAt(long deltaBaseAt) {
+        this.deltaBaseAt = deltaBaseAt;
     }
 
     int maxRecords() {
@@ -165,8 +231,12 @@ final class TraceView extends JScrollPane {
         }
         boolean c = compact, t = tagServer;
         TimestampFormat f = timestampFormat;
+        long base = deltaBaseAt;
         for (TraceEntry e : entries) {
-            lengths.addLast(add(doc, e.render(c, t, f)));
+            long current = TraceTime.timestamp(e.record);
+            long delta = f == TimestampFormat.DELTA && current >= 0 && base >= 0
+                    ? TraceTime.deltaMillis(current, base) : 0;
+            lengths.addLast(add(doc, e.render(c, t, f, delta)));
             this.entries.addLast(e);
         }
         // Let the document overshoot a little so trimming (a relayout of the whole view) is occasional.
@@ -185,10 +255,14 @@ final class TraceView extends JScrollPane {
         DefaultStyledDocument d = new DefaultStyledDocument();
         Deque<Integer> lens = new ArrayDeque<>();
         Deque<TraceEntry> shown = new ArrayDeque<>();
+        long base = deltaBaseAt;
         int skip = Math.max(0, entries.size() - maxRecords);
         for (TraceEntry e : entries) {
             if (skip-- > 0) continue;
-            lens.addLast(add(d, e.render(c, t, f)));
+            long current = TraceTime.timestamp(e.record);
+            long delta = f == TimestampFormat.DELTA && current >= 0 && base >= 0
+                    ? TraceTime.deltaMillis(current, base) : 0;
+            lens.addLast(add(d, e.render(c, t, f, delta)));
             shown.addLast(e);
         }
         return new Built(d, lens, shown);
@@ -207,6 +281,7 @@ final class TraceView extends JScrollPane {
     }
 
     void clear() {
+        deltaBaseAt = -1;
         install(new Built(new DefaultStyledDocument(), new ArrayDeque<>(), new ArrayDeque<>()));
     }
 
@@ -329,8 +404,14 @@ final class TraceView extends JScrollPane {
     }
 
     /** JTextPane that can turn line wrapping off (it always wraps by default). */
-    private static final class WrappingTextPane extends JTextPane {
+    private final class WrappingTextPane extends JTextPane {
         boolean wrap;
+
+        @Override
+        protected void processMouseEvent(MouseEvent e) {
+            rememberContextEntry(e);
+            super.processMouseEvent(e);
+        }
 
         @Override
         public boolean getScrollableTracksViewportWidth() {
