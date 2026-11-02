@@ -23,7 +23,7 @@ final class TraceEntry {
      * ordinal; otherwise it is {@code TOKEN_COUNT + DSTrace console color}.
      */
     record Rendered(String text, int[] starts, int[] ends, int[] styles, boolean compact, boolean tagServer,
-                    TimestampFormat timestampFormat) {
+                    TimestampFormat timestampFormat, long deltaMillis) {
     }
 
     final long seq;
@@ -34,6 +34,9 @@ final class TraceEntry {
     private static final Object NONE = new Object();
     /** The header's time of day in milliseconds, -1 without a header; -2 until computed. */
     private volatile long timeOfDay = -2;
+    /** {@link TraceTime#timestamp(TraceRecord, TraceTime.DateOrder)} in {@link #timestampOrder}; -2 until computed. */
+    private volatile long timestamp = -2;
+    private volatile TraceTime.DateOrder timestampOrder;
 
     TraceEntry(long seq, TraceRecord record) {
         this.seq = seq;
@@ -50,6 +53,17 @@ final class TraceEntry {
         return m == NONE ? null : (TraceMarker) m;
     }
 
+    /** The record's timestamp for DELTA, slash dates read in {@code order}; computed once per order. */
+    long timestamp(TraceTime.DateOrder order) {
+        long t = timestamp;
+        if (t == -2 || timestampOrder != order) {
+            t = TraceTime.timestamp(record, order);
+            timestampOrder = order;
+            timestamp = t;
+        }
+        return t;
+    }
+
     long timeOfDay() {
         long t = timeOfDay;
         if (t == -2) {
@@ -60,18 +74,23 @@ final class TraceEntry {
     }
 
     Rendered render(boolean compact, boolean tagServer, TimestampFormat timestampFormat) {
+        return render(compact, tagServer, timestampFormat, 0);
+    }
+
+    Rendered render(boolean compact, boolean tagServer, TimestampFormat timestampFormat, long deltaMillis) {
         Rendered r = rendered;
         if (r != null && r.compact() == compact && r.tagServer() == tagServer
-                && r.timestampFormat() == timestampFormat) {
+                && r.timestampFormat() == timestampFormat
+                && (timestampFormat != TimestampFormat.DELTA || r.deltaMillis() == deltaMillis)) {
             return r;
         }
-        r = build(compact, tagServer, timestampFormat);
+        r = build(compact, tagServer, timestampFormat, deltaMillis);
         rendered = r;
         return r;
     }
 
-    private Rendered build(boolean compact, boolean tagServer, TimestampFormat timestampFormat) {
-        TraceRecord rec = record.withTimestampFormat(timestampFormat);
+    private Rendered build(boolean compact, boolean tagServer, TimestampFormat timestampFormat, long deltaMillis) {
+        TraceRecord rec = record.withTimestampFormat(timestampFormat, deltaMillis);
         rec = compact ? TraceCompactor.compact(rec) : rec;
         String tag = tagServer && rec.header() != null && !rec.server().isEmpty() ? "[" + rec.server() + "] " : "";
         List<TraceHighlighter.Run> runs = TraceHighlighter.highlight(rec);
@@ -91,6 +110,6 @@ final class TraceEntry {
             ends[i + extra] = run.end() + shift;
             styles[i + extra] = run.token() == TraceHighlighter.Token.DS_COLOR ? TOKEN_COUNT + run.dsColor() : run.token().ordinal();
         }
-        return new Rendered(tag + rec.text(), starts, ends, styles, compact, tagServer, timestampFormat);
+        return new Rendered(tag + rec.text(), starts, ends, styles, compact, tagServer, timestampFormat, deltaMillis);
     }
 }

@@ -33,14 +33,25 @@ public record TraceRecord(String server, long receivedAt, int eventType, String 
 
     /**
      * This record with a viewer-added timestamp written in {@code format}; unchanged if the
-     * timestamp came with the message or is already in that format.
+     * timestamp came with the message or is already in that format. DELTA keeps an absolute time
+     * (see {@link TimestampFormat}), so this is what a recording writes.
      */
     public TraceRecord withTimestampFormat(TimestampFormat format) {
+        return withTimestampFormat(format == TimestampFormat.DELTA ? TimestampFormat.DEFAULT : format, 0);
+    }
+
+    /**
+     * This record with a viewer-added timestamp written in {@code format}; {@code deltaMillis} is
+     * used only by {@link TimestampFormat#DELTA}, which rewrites any header timestamp, the trace
+     * file's own included. For display only.
+     */
+    public TraceRecord withTimestampFormat(TimestampFormat format, long deltaMillis) {
         Header h = header;
-        if (h == null || !h.stamped()) {
+        if (h == null || (!h.stamped() && format != TimestampFormat.DELTA)) {
             return this;
         }
-        String stamp = format.format(receivedAt);
+        String stamp = format == TimestampFormat.DELTA
+                ? format.formatDelta(deltaMillis) : format.format(receivedAt);
         int from = h.timestampStart() + 1, to = h.timestampEnd() - 1;
         if (stamp.equals(text.substring(from, to))) {
             return this;
@@ -52,7 +63,7 @@ public record TraceRecord(String server, long receivedAt, int eventType, String 
                 .toList();
         Header moved = new Header(h.timestampStart(), h.timestampEnd() + shift, h.nameStart() + shift,
                 h.nameEnd() + shift, h.threadStart() < 0 ? -1 : h.threadStart() + shift,
-                h.threadEnd() < 0 ? -1 : h.threadEnd() + shift, h.end() + shift, true);
+                h.threadEnd() < 0 ? -1 : h.threadEnd() + shift, h.end() + shift, h.stamped());
         return new TraceRecord(server, receivedAt, eventType, perpetratorDN, newText, spans, driverName, channel, moved);
     }
 

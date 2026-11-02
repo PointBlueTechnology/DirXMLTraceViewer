@@ -215,6 +215,50 @@ class TraceModelTest {
     }
 
     @Test
+    void formatsDeltaInSecondsWithMillisecondPrecision() {
+        assertEquals("0.000", TimestampFormat.DELTA.formatDelta(0));
+        assertEquals("1.023", TimestampFormat.DELTA.formatDelta(1023));
+        assertEquals("-0.001", TimestampFormat.DELTA.formatDelta(-1));
+        assertEquals("0.001", TimestampFormat.DELTA.formatDelta(1));
+    }
+
+    @Test
+    void deltaKeepsAnAbsoluteTimeInRecords() {
+        long at = java.time.LocalDateTime.of(2026, 10, 14, 10, 0, 1, 234_000_000)
+                .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        assertEquals(TimestampFormat.DEFAULT.format(at), TimestampFormat.DELTA.format(at));
+        TraceParser p = new TraceParser();
+        p.setTimestampFormat(TimestampFormat.DELTA);
+        TraceRecord live = p.parse(new RawTraceEvent(214, at, "", "%3CAD ST:x", List.of()));
+        assertTrue(live.text().startsWith("[10/14/26 10:00:01.234]:AD ST:x"), live.text());
+        // what a recording writes: the absolute time, never the interval
+        assertTrue(live.withTimestampFormat(TimestampFormat.DELTA).text().startsWith("[10/14/26 10:00:01.234]"));
+        TraceRecord file = p.parseText("", "[10/14/26 10:00:01.234]:AD ST:x");
+        assertEquals(file.text(), file.withTimestampFormat(TimestampFormat.DELTA).text());
+    }
+
+    @Test
+    void bracketedFiveCharacterTextIsNotAHeader() {
+        assertNull(new TraceParser().parseText("", "[DEBUG]:x: something").header());
+    }
+
+    @Test
+    void slashDateOrderIsDecidedOncePerFile() {
+        TraceParser p = new TraceParser();
+        TraceRecord ambiguous = p.parseText("", "[11/10/26 10:00:00.000]:AD ST:a");
+        TraceRecord dayFirst = p.parseText("", "[13/10/26 10:00:00.000]:AD ST:b");
+        TraceRecord monthFirst = p.parseText("", "[10/13/26 10:00:00.000]:AD ST:c");
+        assertEquals(TraceTime.DateOrder.DAY_FIRST, TraceTime.dateOrder(List.of(ambiguous, dayFirst), TraceTime.DateOrder.MONTH_FIRST));
+        assertEquals(TraceTime.DateOrder.MONTH_FIRST, TraceTime.dateOrder(List.of(ambiguous, monthFirst), TraceTime.DateOrder.DAY_FIRST));
+        assertEquals(TraceTime.DateOrder.DAY_FIRST, TraceTime.dateOrder(List.of(ambiguous), TraceTime.DateOrder.DAY_FIRST));
+        // read day first, 11/10 and 13/10 are two days apart (month first, 11/10 would be November)
+        long a = TraceTime.timestamp(ambiguous, TraceTime.DateOrder.DAY_FIRST);
+        long b = TraceTime.timestamp(dayFirst, TraceTime.DateOrder.DAY_FIRST);
+        assertEquals(2L * 24 * 3600 * 1000, b - a, 3600_000);
+        assertEquals(-1, TraceTime.timestamp(p.parseText("", "no header"), TraceTime.DateOrder.MONTH_FIRST));
+    }
+
+    @Test
     void xmlAndIndentedTextAreNotHeaders() {
         TraceParser p = new TraceParser();
         p.parse(event("[09/25/26 10:15:12.345]:HR JDBC PT:Sending:"));
