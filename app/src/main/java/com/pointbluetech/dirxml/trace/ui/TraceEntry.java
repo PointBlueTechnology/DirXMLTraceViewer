@@ -34,6 +34,9 @@ final class TraceEntry {
     private static final Object NONE = new Object();
     /** The header's time of day in milliseconds, -1 without a header; -2 until computed. */
     private volatile long timeOfDay = -2;
+    /** {@link TraceTime#timestamp(TraceRecord, TraceTime.DateOrder)} in {@link #timestampOrder}; -2 until computed. */
+    private volatile long timestamp = -2;
+    private volatile TraceTime.DateOrder timestampOrder;
 
     TraceEntry(long seq, TraceRecord record) {
         this.seq = seq;
@@ -48,6 +51,17 @@ final class TraceEntry {
             marker = m;
         }
         return m == NONE ? null : (TraceMarker) m;
+    }
+
+    /** The record's timestamp for DELTA, slash dates read in {@code order}; computed once per order. */
+    long timestamp(TraceTime.DateOrder order) {
+        long t = timestamp;
+        if (t == -2 || timestampOrder != order) {
+            t = TraceTime.timestamp(record, order);
+            timestampOrder = order;
+            timestamp = t;
+        }
+        return t;
     }
 
     long timeOfDay() {

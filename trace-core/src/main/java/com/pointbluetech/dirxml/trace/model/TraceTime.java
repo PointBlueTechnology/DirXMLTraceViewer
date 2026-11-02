@@ -1,7 +1,7 @@
 package com.pointbluetech.dirxml.trace.model;
 
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.regex.Matcher;
@@ -17,12 +17,21 @@ public final class TraceTime {
 
     private static final long DAY_MILLIS = 24 * 60 * 60 * 1000L;
     private static final Pattern TIME = Pattern.compile("(\\d{1,2}):(\\d{2})(?::(\\d{2})(?:[.,](\\d{1,3}))?)?");
-    private static final DateTimeFormatter[] DATE_TIMES = {
-            DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss.SSS"),
-            DateTimeFormatter.ofPattern("dd.MM.yy HH:mm:ss.SSS"),
-            DateTimeFormatter.ofPattern("dd/MM/yy HH:mm:ss.SSS"),
-            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS")
-    };
+    private static final DateTimeFormatter MONTH_SLASH = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss.SSS");
+    private static final DateTimeFormatter DAY_SLASH = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm:ss.SSS");
+    private static final DateTimeFormatter DAY_DOTS = DateTimeFormatter.ofPattern("dd.MM.yy HH:mm:ss.SSS");
+    private static final DateTimeFormatter ISO = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS");
+    /** A slash date's first two fields, which alone cannot say whether the month or the day comes first. */
+    private static final Pattern SLASH = Pattern.compile("^(\\d{2})/(\\d{2})/\\d{2} ");
+    private static final Pattern DOTS = Pattern.compile("^\\d{2}\\.\\d{2}\\.\\d{2} ");
+    private static final Pattern ISO_DATE = Pattern.compile("^\\d{4}-\\d{2}-\\d{2} ");
+
+    /**
+     * Which field of a slash date ({@code 10/11/26}) is the month: U.S. ({@code MM/dd/yy}, the
+     * DSTrace console's) or European ({@code dd/MM/yy}). One file uses one order, so it is decided
+     * once per file ({@link #dateOrder}), never line by line.
+     */
+    public enum DateOrder { MONTH_FIRST, DAY_FIRST }
 
     private TraceTime() {
     }
@@ -37,8 +46,18 @@ public final class TraceTime {
         return parse(text.substring(Math.max(0, h.timestampStart()), Math.min(text.length(), h.timestampEnd())));
     }
 
-    /** Timestamp used for display intervals: event receive time, or a trace header's date and time. */
+    /** {@link #timestamp(TraceRecord, DateOrder)} with U.S. slash dates. */
     public static long timestamp(TraceRecord record) {
+        return timestamp(record, DateOrder.MONTH_FIRST);
+    }
+
+    /**
+     * Timestamp used for display intervals: the event's receive time, or the trace header's date and
+     * time in the local time zone (so an interval across a daylight-saving change is right), with
+     * slash dates read in {@code order}. A header with a time but no date it can read gives the time
+     * of day; no header gives -1.
+     */
+    public static long timestamp(TraceRecord record, DateOrder order) {
         if (record.receivedAt() != 0) {
             return record.receivedAt();
         }
@@ -47,14 +66,44 @@ public final class TraceTime {
             return -1;
         }
         String stamp = record.text().substring(header.timestampStart() + 1, header.timestampEnd() - 1);
-        for (DateTimeFormatter formatter : DATE_TIMES) {
+        // the date's shape picks the one formatter to try, so a line costs at most one parse
+        DateTimeFormatter formatter = SLASH.matcher(stamp).find() ? (order == DateOrder.DAY_FIRST ? DAY_SLASH : MONTH_SLASH)
+                : DOTS.matcher(stamp).find() ? DAY_DOTS
+                : ISO_DATE.matcher(stamp).find() ? ISO
+                : null;
+        if (formatter != null) {
             try {
-                return LocalDateTime.parse(stamp, formatter).toInstant(ZoneOffset.UTC).toEpochMilli();
+                return LocalDateTime.parse(stamp, formatter).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
             } catch (DateTimeParseException ignored) {
-                // Try the other supported timestamp formats, then fall back to time of day.
+                // a date in an unexpected layout: fall back to the time of day
             }
         }
         return timeOfDay(record);
+    }
+
+    /**
+     * The order of slash dates in these records: from the first header that only one order can
+     * read (a field above 12), else {@code fallback} (the user's chosen format, say).
+     */
+    public static DateOrder dateOrder(Iterable<TraceRecord> records, DateOrder fallback) {
+        for (TraceRecord record : records) {
+            TraceRecord.Header header = record.header();
+            if (header == null || record.receivedAt() != 0) {
+                continue;
+            }
+            Matcher m = SLASH.matcher(record.text().substring(header.timestampStart() + 1, header.timestampEnd() - 1));
+            if (!m.find()) {
+                continue;
+            }
+            int first = Integer.parseInt(m.group(1)), second = Integer.parseInt(m.group(2));
+            if (first > 12 && second <= 12) {
+                return DateOrder.DAY_FIRST;
+            }
+            if (second > 12 && first <= 12) {
+                return DateOrder.MONTH_FIRST;
+            }
+        }
+        return fallback;
     }
 
     /** Difference between two display timestamps, accounting for midnight in time-of-day values. */

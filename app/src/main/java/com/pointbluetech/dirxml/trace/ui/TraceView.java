@@ -63,6 +63,7 @@ final class TraceView extends JScrollPane {
     private volatile boolean compact;
     private volatile TimestampFormat timestampFormat = TimestampFormat.DEFAULT;
     private volatile long deltaBaseAt = -1;
+    private volatile TraceTime.DateOrder dateOrder = TraceTime.DateOrder.MONTH_FIRST;
 
     TraceView(int maxRecords) {
         this(maxRecords, entry -> { });
@@ -114,7 +115,7 @@ final class TraceView extends JScrollPane {
         menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             @Override
             public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
-                setBase.setEnabled(contextEntry != null && TraceTime.timestamp(contextEntry.record) >= 0);
+                setBase.setEnabled(contextEntry != null && contextEntry.timestamp(dateOrder) >= 0);
             }
 
             @Override
@@ -203,6 +204,24 @@ final class TraceView extends JScrollPane {
         this.deltaBaseAt = deltaBaseAt;
     }
 
+    /** How slash dates in the trace being viewed are read, for DELTA (one order per file). */
+    void setDateOrder(TraceTime.DateOrder dateOrder) {
+        this.dateOrder = dateOrder;
+    }
+
+    TraceTime.DateOrder dateOrder() {
+        return dateOrder;
+    }
+
+    /** The DELTA interval of {@code e} from the base, or 0 when the format is not DELTA (nothing is computed then). */
+    private static long delta(TraceEntry e, TimestampFormat f, long base, TraceTime.DateOrder order) {
+        if (f != TimestampFormat.DELTA || base < 0) {
+            return 0;
+        }
+        long current = e.timestamp(order);
+        return current < 0 ? 0 : TraceTime.deltaMillis(current, base);
+    }
+
     int maxRecords() {
         return maxRecords;
     }
@@ -232,11 +251,9 @@ final class TraceView extends JScrollPane {
         boolean c = compact, t = tagServer;
         TimestampFormat f = timestampFormat;
         long base = deltaBaseAt;
+        TraceTime.DateOrder order = dateOrder;
         for (TraceEntry e : entries) {
-            long current = TraceTime.timestamp(e.record);
-            long delta = f == TimestampFormat.DELTA && current >= 0 && base >= 0
-                    ? TraceTime.deltaMillis(current, base) : 0;
-            lengths.addLast(add(doc, e.render(c, t, f, delta)));
+            lengths.addLast(add(doc, e.render(c, t, f, delta(e, f, base, order))));
             this.entries.addLast(e);
         }
         // Let the document overshoot a little so trimming (a relayout of the whole view) is occasional.
@@ -256,13 +273,11 @@ final class TraceView extends JScrollPane {
         Deque<Integer> lens = new ArrayDeque<>();
         Deque<TraceEntry> shown = new ArrayDeque<>();
         long base = deltaBaseAt;
+        TraceTime.DateOrder order = dateOrder;
         int skip = Math.max(0, entries.size() - maxRecords);
         for (TraceEntry e : entries) {
             if (skip-- > 0) continue;
-            long current = TraceTime.timestamp(e.record);
-            long delta = f == TimestampFormat.DELTA && current >= 0 && base >= 0
-                    ? TraceTime.deltaMillis(current, base) : 0;
-            lens.addLast(add(d, e.render(c, t, f, delta)));
+            lens.addLast(add(d, e.render(c, t, f, delta(e, f, base, order))));
             shown.addLast(e);
         }
         return new Built(d, lens, shown);

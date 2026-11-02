@@ -744,10 +744,12 @@ public final class MainFrame extends JFrame {
             n++;
             received++;
             store.addLast(e);
-            long current = TraceTime.timestamp(e.record);
-            if (deltaBaseAt < 0 && current >= 0) {
-                deltaBaseAt = current;
-                view.setDeltaBaseAt(current);
+            if (deltaBaseAt < 0) {
+                long current = e.timestamp(view.dateOrder());
+                if (current >= 0) {
+                    deltaBaseAt = current;
+                    view.setDeltaBaseAt(current);
+                }
             }
             if (filter.matches(e.record)) {
                 shown.add(e);
@@ -759,12 +761,10 @@ public final class MainFrame extends JFrame {
         limitStore();
         if (recorder != null && !shown.isEmpty()) {
             try {
+                // a recording keeps the absolute time, DELTA included (it is a display choice)
                 TimestampFormat format = view.timestampFormat();
                 for (TraceEntry s : shown) {
-                    long current = TraceTime.timestamp(s.record);
-                    long delta = format == TimestampFormat.DELTA && current >= 0 && deltaBaseAt >= 0
-                            ? TraceTime.deltaMillis(current, deltaBaseAt) : 0;
-                    recorder.write(s.record.withTimestampFormat(format, delta), view.tagServer());
+                    recorder.write(s.record.withTimestampFormat(format), view.tagServer());
                 }
                 recorder.flush();
             } catch (IOException ex) {
@@ -809,7 +809,7 @@ public final class MainFrame extends JFrame {
     }
 
     private void setDeltaBase(TraceEntry entry) {
-        long base = TraceTime.timestamp(entry.record);
+        long base = entry.timestamp(view.dateOrder());
         if (base < 0) {
             return;
         }
@@ -940,7 +940,10 @@ public final class MainFrame extends JFrame {
                     showError("Could not read " + f, error);
                 }
                 store.addAll(entries);
-                deltaBaseAt = entries.isEmpty() ? -1 : TraceTime.timestamp(entries.get(0).record);
+                TraceTime.DateOrder order = TraceTime.dateOrder(() -> entries.stream().map(e -> e.record).iterator(),
+                        view.timestampFormat() == TimestampFormat.EUROPEAN_SLASH ? TraceTime.DateOrder.DAY_FIRST : TraceTime.DateOrder.MONTH_FIRST);
+                view.setDateOrder(order);
+                deltaBaseAt = entries.isEmpty() ? -1 : entries.get(0).timestamp(order);
                 view.setDeltaBaseAt(deltaBaseAt);
                 received = entries.size();
                 if (pauseButton.isSelected()) {

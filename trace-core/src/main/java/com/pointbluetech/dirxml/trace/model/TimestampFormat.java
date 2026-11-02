@@ -9,6 +9,10 @@ import java.util.Locale;
  * How the viewer displays timestamps. Date/time formats apply to viewer-added live timestamps;
  * {@link #DELTA} also calculates intervals for timestamps already in trace text. Times are shown in
  * the local time zone.
+ * <p>
+ * DELTA is a display choice only: what is written into a record (and so into a recording) is
+ * always an absolute time, in {@link #DEFAULT}'s format, so a recording can be lined up with a
+ * server's trace file and opened again.
  */
 public enum TimestampFormat {
     US("U.S.", "MM/dd/yy HH:mm:ss.SSS"),
@@ -39,9 +43,10 @@ public enum TimestampFormat {
         return pattern == null ? "seconds.milliseconds" : pattern;
     }
 
+    /** The absolute time in this format; DELTA, which has none of its own, writes {@link #DEFAULT}'s. */
     public String format(long epochMillis) {
         if (this == DELTA) {
-            return formatDelta(0);
+            return DEFAULT.format(epochMillis);
         }
         return formatter.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()));
     }

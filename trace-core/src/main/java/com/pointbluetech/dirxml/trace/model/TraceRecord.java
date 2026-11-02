@@ -32,16 +32,18 @@ public record TraceRecord(String server, long receivedAt, int eventType, String 
     }
 
     /**
-     * This record with a viewer-added timestamp written in {@code format}; unchanged if a
-     * non-delta timestamp came with the message or the timestamp is already in that format.
+     * This record with a viewer-added timestamp written in {@code format}; unchanged if the
+     * timestamp came with the message or is already in that format. DELTA keeps an absolute time
+     * (see {@link TimestampFormat}), so this is what a recording writes.
      */
     public TraceRecord withTimestampFormat(TimestampFormat format) {
-        return withTimestampFormat(format, 0);
+        return withTimestampFormat(format == TimestampFormat.DELTA ? TimestampFormat.DEFAULT : format, 0);
     }
 
     /**
      * This record with a viewer-added timestamp written in {@code format}; {@code deltaMillis} is
-     * used only by {@link TimestampFormat#DELTA}.
+     * used only by {@link TimestampFormat#DELTA}, which rewrites any header timestamp, the trace
+     * file's own included. For display only.
      */
     public TraceRecord withTimestampFormat(TimestampFormat format, long deltaMillis) {
         Header h = header;
