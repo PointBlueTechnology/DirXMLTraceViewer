@@ -183,6 +183,20 @@ shasum -a 256 DirXML-Trace-Viewer-1.2.0-arm64.dmg >> SHA256SUMS
 gh release upload v1.2.0 DirXML-Trace-Viewer-1.2.0-arm64.dmg SHA256SUMS --clobber --repo PointBlueTechnology/DirXMLTraceViewer
 ```
 
+### 8. Publish trace-core to Maven Central
+
+From 1.12.0, `trace-core` is on Maven Central as `com.pointbluetech:dirxml-trace-core`. With the
+checkout clean and at the release tag, run DirXMLDev's publish script on the module:
+
+```sh
+~/IdeaProjects/DirXMLDev/bin/publish-central --module trace-core ~/IdeaProjects/DirXMLTraceViewer
+```
+
+It builds the `central` profile (sources, javadoc, gpg signatures), refuses the bundle if any file
+in it names something on the publish blocklist, and uploads it. Central never deletes a release:
+the check is the last chance. The script's header says where the token, the key and the blocklist
+come from. The app module is not published.
+
 Verify what was published:
 
 ```sh

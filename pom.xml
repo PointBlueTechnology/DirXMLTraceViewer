@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+         child.project.url.inherit.append.path="false">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.pointbluetech</groupId>
@@ -9,6 +10,13 @@
     <version>1.12.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>DirXML Trace Viewer</name>
+    <description>A viewer for NetIQ/OpenText Identity Manager (DirXML) DSTrace output, and the trace parser it is built on.</description>
+    <url>https://github.com/PointBlueTechnology/DirXMLTraceViewer</url>
+
+    <organization>
+        <name>Point Blue Technology</name>
+        <url>https://www.pointbluetech.com</url>
+    </organization>
 
     <licenses>
         <license>
@@ -17,6 +25,22 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+
+    <developers>
+        <developer>
+            <name>Point Blue Technology</name>
+            <organization>Point Blue Technology</organization>
+            <organizationUrl>https://www.pointbluetech.com</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm child.scm.connection.inherit.append.path="false"
+         child.scm.developerConnection.inherit.append.path="false"
+         child.scm.url.inherit.append.path="false">
+        <url>https://github.com/PointBlueTechnology/DirXMLTraceViewer</url>
+        <connection>scm:git:https://github.com/PointBlueTechnology/DirXMLTraceViewer.git</connection>
+        <developerConnection>scm:git:git@github.com:PointBlueTechnology/DirXMLTraceViewer.git</developerConnection>
+    </scm>
 
     <!-- Two modules:
            trace-core  the DSTrace parser, formatter, highlighter, filters, file reader and the LDAP
@@ -68,4 +92,65 @@
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <profile>
+            <!-- Maven Central: sources, javadoc, signatures, and the bundle Central takes. Only trace-core
+                 is published (`mvn -Pcentral -pl trace-core deploy`); its pom is flattened, so the parent
+                 is not needed. The bundle is built, not uploaded (skipUpload): DirXMLDev's
+                 bin/publish-central checks it for names that must not be published, then uploads it. -->
+            <id>central</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals><goal>jar-no-fork</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.12.0</version>
+                        <configuration>
+                            <doclint>none</doclint>
+                            <quiet>true</quiet>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals><goal>jar</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.8</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals><goal>sign</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.12.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <skipUpload>true</skipUpload>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
