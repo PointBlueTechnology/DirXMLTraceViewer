@@ -263,10 +263,11 @@ it has no UI and depends on jldap only. `app` is the Swing viewer on top of it.
 ### Using the library
 
 Other programs read and render trace with `trace-core` so that a line means the same thing
-everywhere (DirXMLDevWeb's trace view does this). It is attached to every release as
-`dirxml-trace-core-<version>.jar`; install it with
-`mvn install:install-file -Dfile=dirxml-trace-core-<version>.jar -DgroupId=com.pointbluetech -DartifactId=dirxml-trace-core -Dversion=<version> -Dpackaging=jar`
-and depend on `com.pointbluetech:dirxml-trace-core`. The pieces:
+everywhere (DirXMLDevWeb's trace view does this). From 1.12.0 it is on Maven Central: depend on
+`com.pointbluetech:dirxml-trace-core`. Earlier versions are attached to their releases as
+`dirxml-trace-core-<version>.jar`; install one with
+`mvn install:install-file -Dfile=dirxml-trace-core-<version>.jar -DgroupId=com.pointbluetech -DartifactId=dirxml-trace-core -Dversion=<version> -Dpackaging=jar`.
+The pieces:
 
 - `TraceParser.parse(RawTraceEvent)` for live events, `TraceParser.parseText` for a file's text;
   both give `TraceRecord`s with server, time, driver, channel, text, the engine's colour spans and
